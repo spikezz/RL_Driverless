@@ -179,17 +179,16 @@ while True:
                 
                 sys.exit()# 退出系统
    
-            if event.key == K_SPACE :                
-                if start_timer==False:                    
-                    start_timer=True
+            #if event.key == K_SPACE :                
+                #if start_timer==False:                    
+                    #start_timer=True
                     
-                else:                    
-                    start_timer=False
+                #else:                    
+                    #start_timer=False
                
     keys = pygame.key.get_pressed()
     
-    if keys[K_LEFT]:
-        car.steerleft()
+    
 
     if keys[K_1]:
         cd=-1#circle direction
@@ -206,11 +205,20 @@ while True:
     if keys[K_4]:
         cd=-1#circle direction
         angle=2.3
+    
+    if keys[K_6]:
         
-    if keys[K_5] or keys[K_6]:
         cd=0#circle direction
         angle=0  
         
+        
+    if keys[K_5]:
+        car.speed=10
+        #car.accelerate()
+        
+   #else:
+        
+        #car.soften()
         
     if keys[K_7]:
         cd=1#circle direction
@@ -229,14 +237,35 @@ while True:
         angle=-45
         
         
+        
+    if keys[K_LEFT]:
+        cd=-1#circle direction
+        if angle<0:
+            
+            angle=-1
+            
+        if angle<46:
+            angle=angle+1
+        #car.steerleft()
+        if angle==0:
+            cd=0
+            
     if keys[K_RIGHT]:
+        cd=1#circle direction
+        if angle>0:
+            
+            angle=1
         
-        car.steerright()    
-        
+        if angle>-46:
+            angle=angle-1
+        #car.steerright()    
+        if angle==0:
+            cd=0
     if keys[K_UP]:
         
         #car.speed=10
         car.accelerate()
+        
     else:
         
         car.soften()
@@ -252,6 +281,10 @@ while True:
     if keys[K_DELETE]:
         
         pass
+    
+    if keys[K_SPACE]:
+        
+        car.deaccelerate()
         
     cam.set_pos(car.x, car.y)
     
@@ -287,23 +320,11 @@ while True:
     text_speed= font.render('speed: ' + str(round(float(speed),2))+'|'+str(round(float(car.speed),2))+'pixel/s', 1, (0, 0, 102))   
     textpos_speed = text_dir.get_rect(centery=345, left=20)
     
-    text_show= font.render('show: ' + str(round(float(pygame.display.Info().current_w),2)), 1, (0, 0, 102))   
-    textpos_show = text_dir.get_rect(centery=385, left=20)
+    text_show1= font.render('show1: ' + str(round(float(car.rpr[0]),2)), 1, (0, 0, 102))   
+    textpos_show1 = text_dir.get_rect(centery=385, left=20)
     
-    screen.blit(background, (0,0))
-    
-    map_s.update(cam.x, cam.y)
-    map_s.draw(screen)
-    
-    player_s.update(cam.x, cam.y)
-    player_s.draw(screen)
-
-    tracks_s.add(tracks.Track(cam.x + CENTER_X , cam.y + CENTER_Y, car.dir))
-    
-    tracks_s.update(cam.x, cam.y)
-    tracks_s.draw(screen)
-    
-    canvas.fill((255, 255, 255,0))
+    text_show2= font.render('show2: ' + str(round(float(car.rpr[1]),2)), 1, (0, 0, 102))   
+    textpos_show2 = text_dir.get_rect(centery=425, left=20)
 
     #model of car
     #35*41 rect
@@ -329,7 +350,7 @@ while True:
     sita_frt=math.degrees(math.atan((frt[0]-CENTER_X)/(frt[1]-CENTER_Y)))
     
     
-    if cd==-1 :
+    if angle>0 :
         
         fwel=(CENTER_X+17-517*math.cos(math.radians(angle)),CENTER_Y-20+517*math.sin(math.radians(angle)))
         R_fwel=math.sqrt(pow(fwel[0]-CENTER_X,2)+pow(fwel[1]-CENTER_Y,2))
@@ -340,11 +361,12 @@ while True:
         R_rpl=math.sqrt(pow(rpl[0]-CENTER_X,2)+pow(rpl[1]-CENTER_Y,2))
         sita_rpl=180+math.degrees(math.atan((rpl[0]-CENTER_X)/(rpl[1]-CENTER_Y)))
         rrl=40/math.sin(math.radians(angle))
-        
+        car.rrl=rrl
+        car.steerleft(angle)
      
         
         
-    elif cd==1 :
+    elif angle<0  :
         
         fwer=(CENTER_X-17+517*math.cos(math.radians(angle)),CENTER_Y-20-517*math.sin(math.radians(angle)))
         R_fwer=math.sqrt(pow(fwer[0]-CENTER_X,2)+pow(fwer[1]-CENTER_Y,2))
@@ -355,7 +377,8 @@ while True:
         R_rpr=math.sqrt(pow(rpr[0]-CENTER_X,2)+pow(rpr[1]-CENTER_Y,2))
         sita_rpr=180+math.degrees(math.atan((rpr[0]-CENTER_X)/(rpr[1]-CENTER_Y)))
         rrr=-40/math.sin(math.radians(angle))
-        
+        car.rrr=rrr
+        car.steerright(angle)
     
     
     else:
@@ -369,13 +392,15 @@ while True:
         
         sita_fwel=math.degrees(math.atan(25))
         sita_fwer=-math.degrees(math.atan(25))
-            
-    
-    
     
     
     rpl=(CENTER_X+R_rpl*math.cos(math.radians(270-car.dir-sita_rpl)),CENTER_Y+R_rpl* math.sin(math.radians(270-car.dir-sita_rpl)))
     rpr=(CENTER_X+R_rpr*math.cos(math.radians(270-car.dir-sita_rpr)),CENTER_Y+R_rpr* math.sin(math.radians(270-car.dir-sita_rpr)))
+    
+    car.rpl=(rpl[0]-CENTER_X+car.x,rpl[1]-CENTER_Y+car.y)
+    car.rpr=(rpr[0]-CENTER_X+car.x,rpr[1]-CENTER_Y+car.y)
+
+    
     
     fwel=(CENTER_X+R_fwel*math.cos(math.radians(270-car.dir-sita_fwel)),CENTER_Y+R_fwel* math.sin(math.radians(270-car.dir-sita_fwel)))
     fwer=(CENTER_X+R_fwer*math.cos(math.radians(270-car.dir-sita_fwer)),CENTER_Y+R_fwer* math.sin(math.radians(270-car.dir-sita_fwer)))
@@ -405,6 +430,22 @@ while True:
     bwer=(CENTER_X+R_bwer*math.cos(math.radians(270-car.dir-sita_bwer)),CENTER_Y+R_bwer* math.sin(math.radians(270-car.dir-sita_bwer)))
     
     
+    screen.blit(background, (0,0))
+    
+    map_s.update(cam.x, cam.y)
+    map_s.draw(screen)
+    
+    player_s.update(cam.x, cam.y)
+    player_s.draw(screen)
+
+    tracks_s.add(tracks.Track(cam.x + CENTER_X , cam.y + CENTER_Y, car.dir))
+    
+    tracks_s.update(cam.x, cam.y)
+    tracks_s.draw(screen)
+    
+    canvas.fill((255, 255, 255,0))
+    
+    
     
     pygame.draw.line(canvas, (0,100,0), (100,CENTER_Y), (CENTER_X,CENTER_Y),2)
     pygame.draw.line(canvas, (0,100,0), (CENTER_X,100), (CENTER_X,CENTER_Y),2)#front wheel
@@ -418,40 +459,23 @@ while True:
     pygame.draw.line(canvas, (0,1,0), bar, bal,2)#back axis
     
     pygame.draw.line(canvas, (255,255,102), bwel,bwer,2)#backwheel axis
+    
     if angle >= 2.3 or angle==0:
+        
         pygame.draw.line(canvas, (255,255,102), far,fwel,2)#frontwheel turing axis
+   
     if angle <= -2.3 or angle==0:
+        
         pygame.draw.line(canvas, (255,255,102), fal,fwer,2)#frontwheel turing axis
     
-    
-    
-    
-    
-    
 
-    if cd==-1 :
+    if  angle>0:
         
         pygame.draw.arc(screen, (255,255,102), (rpl[0]-rrl,rpl[1]-rrl,2*rrl,2*rrl), 0, 360, 3)
     
-    if cd== 1 :
+    if  angle<0:
         
         pygame.draw.arc(screen, (255,255,102), (rpr[0]-rrr,rpr[1]-rrr,2*rrr,2*rrr), 0, 360, 3)
-    
-    
-   
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     screen.blit(canvas, (0,0))
@@ -465,7 +489,8 @@ while True:
     screen.blit(text_posyr, textpos_posyr)
     screen.blit(text_dir, textpos_dir)
     screen.blit(text_speed, textpos_speed)
-    screen.blit(text_show, textpos_show)
+    screen.blit(text_show1, textpos_show1)
+    screen.blit(text_show2, textpos_show2)
     
     if start_timer==True:
 

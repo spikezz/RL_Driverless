@@ -64,8 +64,6 @@ class Player(pygame.sprite.Sprite):
         self.area = self.screen.get_rect()
         CENTER_X =  int(pygame.display.Info().current_w /2)
         CENTER_Y =  int(pygame.display.Info().current_h /2)
-        #CENTER_X =100
-        #CENTER_Y =100
         self.x = CENTER_X
         self.y = CENTER_Y
         self.rect.topleft = self.x-17, self.y-33#middle of the car
@@ -80,6 +78,12 @@ class Player(pygame.sprite.Sprite):
         self.steering = 1.60
         self.tracks = False
         self.wheelangle=0.0
+        self.rrl=0.0
+        self.rrr=0.0
+        self.rpl=(0,0)
+        self.rpr=(0,0)
+        self.rrm=0
+        
 #Reset the car.
     def reset(self):
         self.x =  int(pygame.display.Info().current_w /2)
@@ -130,31 +134,74 @@ class Player(pygame.sprite.Sprite):
             self.emit_tracks()
 
 #Steer.
-    #def steerleft(self,angle,rrl):
-    def steerleft(self):    
-        #self.dir =self.speed/rrl
-        self.dir = self.dir+self.steering
+    def steerleft(self,angle):
+    #def steerleft(self):    
+        self.dir =self.dir+math.degrees(self.speed/self.rrl)
+        #self.dir = self.dir+self.steering
         if self.dir > 360:
-            self.dir = 0
+            self.dir = self.dir-360
         if (self.speed > self.maxspeed / 2):
             self.emit_tracks()
         self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
 
 #Steer.
-    def steerright(self):
-        self.dir = self.dir-self.steering
+    def steerright(self,angle):
+        self.dir =self.dir-math.degrees(self.speed/self.rrr)
+        #self.dir = self.dir-self.steering
         if self.dir < 0:
-            self.dir = 360
-        if (self.speed > self.maxspeed / 2):
-            self.emit_tracks()   
+            self.dir = self.dir+360
+        #if (self.speed > self.maxspeed / 2):
+           # self.emit_tracks()   
         self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
 
 #fix this function 
     def update(self, last_x, last_y):
-        self.x = self.x + self.speed * math.cos(math.radians(270-self.dir))
-        self.y = self.y + self.speed * math.sin(math.radians(270-self.dir))
-        self.reset_tracks()
         
+        if self.wheelangle>0:
+            x_old=self.x
+            y_old=self.y
+            self.rrm=math.sqrt(pow(x_old-self.rpl[0],2)+pow(y_old-self.rpl[1],2))#pixel/s
+            
+            if   x_old>self.rpl[0]:
+                
+                fi=math.asin((y_old-self.rpl[1])/self.rrm)
+                
+            elif x_old<=self.rpl[0]:  
+                
+                fi=math.pi-math.asin((y_old-self.rpl[1])/self.rrm)
+                
+            
+            fin=fi-(self.speed/self.rrl)
+            
+            self.x=self.rpl[0]+math.cos(fin)*self.rrm
+            self.y=self.rpl[1]+math.sin(fin)*self.rrm
+            
+        elif self.wheelangle<0:
+            
+            x_old=self.x
+            y_old=self.y
+            self.rrm=math.sqrt(pow(x_old-self.rpr[0],2)+pow(y_old-self.rpr[1],2))#pixel/s
+            
+            if   x_old>self.rpr[0]:
+                
+                fi=math.asin((y_old-self.rpr[1])/self.rrm)
+                
+            elif x_old<=self.rpr[0]:  
+                
+                fi=math.pi-math.asin((y_old-self.rpr[1])/self.rrm)
+                
+            
+            fin=fi+(self.speed/self.rrr)
+            
+            self.x=self.rpr[0]+math.cos(fin)*self.rrm
+            self.y=self.rpr[1]+math.sin(fin)*self.rrm
+            
+        else:  
+    
+            self.x = self.x + self.speed * math.cos(math.radians(270-self.dir))
+            self.y = self.y + self.speed * math.sin(math.radians(270-self.dir))
+            self.reset_tracks()
+            
 
 
 
