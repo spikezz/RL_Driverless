@@ -70,7 +70,7 @@ class Player(pygame.sprite.Sprite):
         self.x, self.y = findspawn()
         self.dir = 0
         self.speed = 0.0
-        self.maxspeed = 21.5
+        self.maxspeed = 15.5
         self.minspeed = -1.85
         self.acceleration = 1.095
         self.deacceleration = 1.12
@@ -83,6 +83,13 @@ class Player(pygame.sprite.Sprite):
         self.rpl=(0,0)
         self.rpr=(0,0)
         self.rrm=0
+        
+        
+    def set_start_direction(self,direction):
+        
+        #self.dir is the direction of the car, car.dir=0 means face top,the positive direction is anticlockwise
+        self.dir=direction
+        self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
         
 #Reset the car.
     def reset(self):
