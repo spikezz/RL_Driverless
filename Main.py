@@ -6,6 +6,7 @@ Created on Tue May  1 11:14:08 2018
 """
 import sys, pygame, math
 import player,maps,tracks,camera
+import canvas as cv
 import calculation as cal
 from pygame.locals import *
 from loader import load_image
@@ -85,172 +86,7 @@ radius_of_wheel=10
 el_length=500
 ##constant of the car
 
-
-##bwel/r:back,wheel,extension,left/right end point
-#the extension line(end point) for finding the center of the circle kurve, which the car obey when turning
-bwel=(CENTER[0]-el_length ,CENTER[1]+half_middle_axis_length)
-bwer=(CENTER[0]+el_length ,CENTER[1]+half_middle_axis_length)
-##bwel/r:back,wheel,extension,left/right end point
-
-
-##R_bwel:R_ radius from the point to the center of the screen
-R_bwel=cal.calculate_r(bwel,CENTER)
-R_bwer=cal.calculate_r(bwer,CENTER)
-##R_bwel:R_ radius from the point to the center of the screen
-
-##sita_bwel:the angle between car.dir=0 and the point
-sita_bwel=cal.calculate_sita(1,bwel,CENTER)
-sita_bwer=cal.calculate_sita(1,bwer,CENTER)
-##sita_bwel:the angle between car.dir=0 and the point
-
-
-##f:front
-#the extension line(end point) of the front wheel.fwel is for front right wheel,fwer is for front left wheel
-fwel=(CENTER[0]-el_length ,CENTER[1]-half_middle_axis_length)
-fwer=(CENTER[0]+el_length ,CENTER[1]-half_middle_axis_length)
-##f:front
-
-
-##
-R_fwel=cal.calculate_r(fwel,CENTER)
-R_fwer=cal.calculate_r(fwer,CENTER)
-##
-
-
-##
-sita_fwel=cal.calculate_sita(0,fwel,CENTER)
-sita_fwer=cal.calculate_sita(0,fwer,CENTER)
-##
-
-
-##rpl:round(circle) posion left(center); rrl:round(circle) radius left(radius)
-#find the center/radius of the circle kurve, which the car obey when turning
-rpl=(CENTER[0]+half_horizontal_axis_length-(2*half_middle_axis_length/math.tan(math.radians(5))),CENTER[1]+half_middle_axis_length)
-R_rpl=cal.calculate_r(rpl,CENTER)
-sita_rpl=cal.calculate_sita(1,rpl,CENTER)
-rrl=2*half_middle_axis_length/math.sin(math.radians(5))
-##
-
-
-##rpr:round(circle) posion right(center); rrr:round(circle) radius right(radius)
-#find the center/radius of the circle kurve, which the car obey when turning
-rpr=(CENTER[0]-half_horizontal_axis_length-(2*half_middle_axis_length/math.tan(math.radians(-5))),CENTER[1]+half_middle_axis_length)
-R_rpr=cal.calculate_r(rpr,CENTER)
-sita_rpr=cal.calculate_sita(1,rpr,CENTER)     
-rrr=-2*half_middle_axis_length/math.sin(math.radians(-5))
-##
-
-
-##fl/rb/t:front left/right bottom/top(point);
-flb=(CENTER[0]-half_horizontal_axis_length,CENTER[1]-half_middle_axis_length+radius_of_wheel)
-flt=(CENTER[0]-half_horizontal_axis_length,CENTER[1]-half_middle_axis_length-radius_of_wheel)
-frb=(CENTER[0]+half_horizontal_axis_length,CENTER[1]-half_middle_axis_length+radius_of_wheel)
-frt=(CENTER[0]+half_horizontal_axis_length,CENTER[1]-half_middle_axis_length-radius_of_wheel)
-##fl/rb/t:front left/right bottom/top(point);
-
-
-##
-R_flb=cal.calculate_r(flb,CENTER)
-R_flt=cal.calculate_r(flt,CENTER)
-R_frb=cal.calculate_r(frb,CENTER)
-R_frt=cal.calculate_r(frt,CENTER)
-##
-
-
-##
-sita_flb=cal.calculate_sita(1,flb,CENTER) 
-sita_flt=cal.calculate_sita(1,flt,CENTER) 
-sita_frb=cal.calculate_sita(1,frb,CENTER) 
-sita_frt=cal.calculate_sita(1,frt,CENTER) 
-##
-
-
-##fal/r:front axis left/right
-fal=(CENTER[0]-half_horizontal_axis_length,CENTER[1]-half_middle_axis_length)
-far=(CENTER[0]+half_horizontal_axis_length,CENTER[1]-half_middle_axis_length)
-##fal/r:front axis left/right
-
-
-##
-R_fal=cal.calculate_r(fal,CENTER)
-R_far=cal.calculate_r(far,CENTER)
-##
-
-
-##
-sita_fal=cal.calculate_sita(0,fal,CENTER) 
-sita_far=cal.calculate_sita(0,far,CENTER) 
-##
-
-
-##mab/t:middle axis bottom/top
-mab=(CENTER[0],CENTER[1]+half_middle_axis_length)
-mat=(CENTER[0],CENTER[1]-half_middle_axis_length)
-##mab/t:middle axis bottom/top
-
-
-##
-R_mab=cal.calculate_r(mab,CENTER)
-R_mat=cal.calculate_r(mat,CENTER)
-##
-
-
-##
-sita_mab=cal.calculate_sita(1,mab,CENTER) 
-sita_mat=cal.calculate_sita(0,mat,CENTER)
-##
-
-
-##bal/r:back axis left/right
-bal=(CENTER[0]-half_horizontal_axis_length,CENTER[1]+half_middle_axis_length)
-bar=(CENTER[0]+half_horizontal_axis_length,CENTER[1]+half_middle_axis_length)
-##bal/r:back axis left/right
-
-
-##
-R_bal=cal.calculate_r(bal,CENTER)
-R_bar=cal.calculate_r(bar,CENTER)
-##
-
-##
-sita_bal=cal.calculate_sita(1,bal,CENTER) 
-sita_bar=cal.calculate_sita(1,bar,CENTER) 
-##
-
-
-##bl/rb/t:back left/right bottom/top(point);
-blb=(CENTER[0]-half_horizontal_axis_length,CENTER[1]+half_middle_axis_length+radius_of_wheel)
-blt=(CENTER[0]-half_horizontal_axis_length,CENTER[1]+half_middle_axis_length-radius_of_wheel)
-brb=(CENTER[0]+half_horizontal_axis_length,CENTER[1]+half_middle_axis_length+radius_of_wheel)
-brt=(CENTER[0]+half_horizontal_axis_length,CENTER[1]+half_middle_axis_length-radius_of_wheel)
-##bl/rb/t:back left/right bottom/top(point);
-
-
-##
-R_blb=cal.calculate_r(blb,CENTER)
-R_blt=cal.calculate_r(blt,CENTER)
-R_brb=cal.calculate_r(brb,CENTER)
-R_brt=cal.calculate_r(brt,CENTER)
-##
-
-
-##
-sita_blb=cal.calculate_sita(1,blb,CENTER) 
-sita_blt=cal.calculate_sita(1,blt,CENTER) 
-sita_brb=cal.calculate_sita(1,brb,CENTER) 
-sita_brt=cal.calculate_sita(1,brt,CENTER)    
-##
-
-
-##fl/rwx/y:x/y of front left/right wheel
-CENTER_flwx=CENTER[0]-half_horizontal_axis_length
-CENTER_flwy=CENTER[1]-half_middle_axis_length
-CENTER_frwx=CENTER[0]+half_horizontal_axis_length
-CENTER_frwy=CENTER[1]-half_middle_axis_length
-CENTER_flw=(CENTER_flwx,CENTER_flwy)
-CENTER_frw=(CENTER_frwx,CENTER_frwy)
-##fl/rwx/y:x/y of front left/right wheel
-
+model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
 ###initial Model of the car
 
 
@@ -479,139 +315,24 @@ while True:
     
     #angle signal give to the object car
     car.wheelangle=angle
-    
-    ##the new position of the point of wheel after turing
-    flb=cal.calculate_rotated_subpoint(CENTER_flw,radius_of_wheel,angle,1)
-    flt=cal.calculate_rotated_subpoint(CENTER_flw,radius_of_wheel,angle,-1)
-    frb=cal.calculate_rotated_subpoint(CENTER_frw,radius_of_wheel,angle,1)
-    frt=cal.calculate_rotated_subpoint(CENTER_frw,radius_of_wheel,angle,-1)  
-    ##the new position of the point of wheel after turing
-    
-    
-    ##
-    R_flb=cal.calculate_r(flb,CENTER)
-    R_flt=cal.calculate_r(flt,CENTER)
-    R_frb=cal.calculate_r(frb,CENTER)
-    R_frt=cal.calculate_r(frt,CENTER)
-    ##
-    
-    
-    ##
-    sita_flb=cal.calculate_sita(0,flb,CENTER)
-    sita_flt=cal.calculate_sita(0,flt,CENTER)
-    sita_frb=cal.calculate_sita(0,frb,CENTER)
-    sita_frt=cal.calculate_sita(0,frt,CENTER)
-    ##
-    
+    model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
+
     
     if angle>0 :
-        
-        fwel=(CENTER_frw[0]-(el_length+half_horizontal_axis_length)*math.cos(math.radians(angle)),CENTER_frw[1]+(el_length+half_horizontal_axis_length)*math.sin(math.radians(angle)))
-        R_fwel=cal.calculate_r(fwel,CENTER)
-        sita_fwel=cal.calculate_sita(1,fwel,CENTER)
-        
-        #determine the center of the car moving circle in the coordinate of the canvas layer
-        rpl=(CENTER[0]+half_horizontal_axis_length-(2*half_middle_axis_length/math.tan(math.radians(angle))),CENTER[1]+half_middle_axis_length)
-        R_rpl=cal.calculate_r(rpl,CENTER)
-        sita_rpl=cal.calculate_sita(1,rpl,CENTER)
-        rrl=2*half_middle_axis_length/math.sin(math.radians(angle))
-        
-        car.rrl=rrl
+    
+        car.rrl=model[19]
         car.steerleft(angle)
 
-
-     
-        
-        
+       
     elif angle<0  :
-        
-        
-        fwer=(CENTER_flw[0]+(el_length+half_horizontal_axis_length)*math.cos(math.radians(angle)),CENTER_flw[1]-(el_length+half_horizontal_axis_length)*math.sin(math.radians(angle)))
-        R_fwer=cal.calculate_r(fwer,CENTER)
-        sita_fwer=cal.calculate_sita(1,fwer,CENTER)
-        
-        #determine the center of the car moving circle in the coordinate of the canvas layer
-        rpr=(CENTER[0]-half_horizontal_axis_length-(2*half_middle_axis_length/math.tan(math.radians(angle))),CENTER[1]+half_middle_axis_length)
-        R_rpr=cal.calculate_r(rpr,CENTER)
-        sita_rpr=cal.calculate_sita(1,rpr,CENTER)     
-        rrr=-2*half_middle_axis_length/math.sin(math.radians(angle))
 
-        car.rrr=rrr
+        car.rrr=model[21]
         car.steerright(angle)
     
+
+    model=cv.rotate(model,CENTER,car.dir)
     
-    else:
-        
-        ##f:front
-        #the extension line(end point) of the front wheel.fwel is for front right wheel,fwer is for front left wheel
-        fwel=(CENTER[0]-el_length ,CENTER[1]-half_middle_axis_length)
-        fwer=(CENTER[0]+el_length ,CENTER[1]-half_middle_axis_length)
-        ##f:front
-        
-        
-        ##
-        R_fwel=cal.calculate_r(fwel,CENTER)
-        R_fwer=cal.calculate_r(fwer,CENTER)
-        ##
-        
-        
-        ##
-        sita_fwel=cal.calculate_sita(0,fwel,CENTER)
-        sita_fwer=cal.calculate_sita(0,fwer,CENTER)
-        ##
-    
-    
-    ##
-    rpl=cal.calculate_rotated_point(CENTER,car.dir,R_rpl,sita_rpl)
-    rpr=cal.calculate_rotated_point(CENTER,car.dir,R_rpr,sita_rpr)
-    ##
-    
-      
-    
-    ##
-    fwel=cal.calculate_rotated_point(CENTER,car.dir,R_fwel,sita_fwel)
-    fwer=cal.calculate_rotated_point(CENTER,car.dir,R_fwer,sita_fwer)
-    ##
-    
-    
-    ##
-    flb=cal.calculate_rotated_point(CENTER,car.dir,R_flb,sita_flb)
-    flt=cal.calculate_rotated_point(CENTER,car.dir,R_flt,sita_flt)
-    frb=cal.calculate_rotated_point(CENTER,car.dir,R_frb,sita_frb)
-    frt=cal.calculate_rotated_point(CENTER,car.dir,R_frt,sita_frt)
-    ##
-    
-    
-    ##
-    fal=cal.calculate_rotated_point(CENTER,car.dir,R_fal,sita_fal)
-    far=cal.calculate_rotated_point(CENTER,car.dir,R_far,sita_far)
-    ##
-    
-    
-    ##
-    mat=cal.calculate_rotated_point(CENTER,car.dir,R_mat,sita_mat)
-    mab=cal.calculate_rotated_point(CENTER,car.dir,R_mab,sita_mab)
-    ##
-    
-    ##
-    bal=cal.calculate_rotated_point(CENTER,car.dir,R_bal,sita_bal)
-    bar=cal.calculate_rotated_point(CENTER,car.dir,R_bar,sita_bar)
-    ##
-    
-    
-    ##
-    blb=cal.calculate_rotated_point(CENTER,car.dir,R_blb,sita_blb)
-    blt=cal.calculate_rotated_point(CENTER,car.dir,R_blt,sita_blt)
-    brb=cal.calculate_rotated_point(CENTER,car.dir,R_brb,sita_brb)
-    brt=cal.calculate_rotated_point(CENTER,car.dir,R_brt,sita_brt)
-    ##
-    
-    
-    ##
-    bwel=cal.calculate_rotated_point(CENTER,car.dir,R_bwel,sita_bwel)
-    bwer=cal.calculate_rotated_point(CENTER,car.dir,R_bwer,sita_bwer)
-    ##
-    
+
     ##start drawing
     
     
@@ -627,8 +348,8 @@ while True:
     
         
     ##determine the center of the car moving circle in the coordinate of the sprite layer,connection between surface canvas and sprite layer
-    car.rpl=(rpl[0]-CENTER[0]+car.x,rpl[1]-CENTER[1]+car.y)
-    car.rpr=(rpr[0]-CENTER[0]+car.x,rpr[1]-CENTER[1]+car.y)
+    car.rpl=(model[18][0][0]-CENTER[0]+car.x,model[18][0][1]-CENTER[1]+car.y)
+    car.rpr=(model[20][0][0]-CENTER[0]+car.x,model[20][0][1]-CENTER[1]+car.y)
     ##determine the center of the car moving circle in the coordinate of the sprite layer,connection between surface canvas and sprite layer
   
     
@@ -656,29 +377,30 @@ while True:
     
     
     ##draw model of the car
-    pygame.draw.line(canvas, (255,255,255), flb, flt,4)
-    pygame.draw.line(canvas, (255,255,255), frb, frt,4)#front wheel
-    pygame.draw.line(canvas, (255,255,255), fal, far,4)#front axis
-    pygame.draw.line(canvas, (255,255,255), mab, mat,4)#middle axis
-    pygame.draw.line(canvas, (255,255,255), blt, blb,4)
-    pygame.draw.line(canvas, (255,255,255), brt, brb,4)#back wheel
-    pygame.draw.line(canvas, (255,255,255), bar, bal,4)#back axis
+    pygame.draw.line(canvas, (255,255,255), model[0][0], model[1][0],4)
+    pygame.draw.line(canvas, (255,255,255), model[2][0], model[3][0],4)#front wheel
+    pygame.draw.line(canvas, (255,255,255), model[4][0], model[5][0],4)#front axis
+    pygame.draw.line(canvas, (255,255,255), model[6][0], model[7][0],4)#middle axis
+    pygame.draw.line(canvas, (255,255,255), model[10][0], model[11][0],4)
+    pygame.draw.line(canvas, (255,255,255), model[12][0], model[13][0],4)#back wheel
+    pygame.draw.line(canvas, (255,255,255), model[8][0], model[9][0],4)#back axis
+
     ##draw model of the car
-    
-    
+       
+
     ##draw back axis extension
-    pygame.draw.line(canvas, (255,255,102), bwel,bwer,2)
+    pygame.draw.line(canvas, (255,255,102), model[16][0],model[17][0],2)
     ##draw back axis extension
     
     
     ##draw front axis extension
     if angle >= 2.3 or angle==0:
         
-        pygame.draw.line(canvas, (255,255,102), far,fwel,2)#frontwheel turing axis
+        pygame.draw.line(canvas, (255,255,102), model[5][0],model[14][0],2)#frontwheel turing axis
    
     if angle <= -2.3 or angle==0:
         
-        pygame.draw.line(canvas, (255,255,102), fal,fwer,2)#frontwheel turing axis
+        pygame.draw.line(canvas, (255,255,102), model[4][0],model[15][0],2)#frontwheel turing axis
     
     ##draw front axis extension
     
@@ -686,15 +408,19 @@ while True:
     ##draw  the car moving circle in canvas
     if  angle>0:
         
-        pygame.draw.arc(canvas, (255,255,102), (rpl[0]-rrl,rpl[1]-rrl,2*rrl,2*rrl), 0, 360, 3)
+        pygame.draw.arc(canvas, (255,255,102), (model[18][0][0]-model[19],model[18][0][1]-model[19],2*model[19],2*model[19]), 0, 360, 3)
     
     if  angle<0:
         
-        pygame.draw.arc(canvas, (255,255,102), (rpr[0]-rrr,rpr[1]-rrr,2*rrr,2*rrr), 0, 360, 3)
+        pygame.draw.arc(canvas, (255,255,102), (model[20][0][0]-model[21],model[20][0][1]-model[21],2*model[21],2*model[21]), 0, 360, 3)
+    
+    ##draw  the car moving circle in canvas
+    
     
     ##show canvas
     screen.blit(canvas, (0,0))
     ##show canvas
+    
     
     ##show text
     screen.blit(text_fps, textpos_fps)
