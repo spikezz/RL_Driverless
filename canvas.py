@@ -344,3 +344,20 @@ def rotate(model,CENTER,direction):
     
     
     return model
+
+def input_vektor_position(model,draw_cone,CENTER,direction):
+    
+    vektor=[draw_cone[0]-model[7][0][0]+CENTER[0],draw_cone[1]-model[7][0][1]+CENTER[1]]
+    R_vektor=cal.calculate_r(vektor,CENTER)
+    sita_vektor=cal.calculate_sita(0,vektor,CENTER)
+    vektor=cal.calculate_rotated_point(CENTER,-direction,R_vektor,sita_vektor)
+
+    if draw_cone[1]<=model[7][0][1]:
+         
+         vektor=[vektor[0]-CENTER[0],vektor[1]-CENTER[1]]
+         
+    else:
+        
+         vektor=[-(vektor[0]-CENTER[0]),-(vektor[1]-CENTER[1])]
+         
+    return vektor

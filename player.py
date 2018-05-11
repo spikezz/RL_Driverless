@@ -32,6 +32,7 @@ GRASS_SPEED = 0.715
 GRASS_GREEN = 75
 CENTER_X = -1
 CENTER_Y = -1
+FULL_TILE = 1000
 
 #Rotate car.
 def rot_center(image, rect, angle):
@@ -41,16 +42,22 @@ def rot_center(image, rect, angle):
         return rot_image,rot_rect
 
 def findspawn():
-    #x = randint(0,9)
-    #y = randint(0,6)
-    x=12#row
-    y=4#line
-    fx=-100
-    fy=-320
+
     #while(maps.map_1[y][x] == 5):
             #x = randint(0,9)
             #y = randint(0,9)
-    return x * 1000 + CENTER_X+fx, y * 1000 + CENTER_Y+fy
+    #return x * FULL_TILE, y * FULL_TILE 
+     #x = randint(0,9)
+     #y = randint(0,6)
+     
+     x=12#row
+     y=4#line
+     fx=-100
+     fy=-320
+#     #while(maps.map_1[y][x] == 5):
+#             #x = randint(0,9)
+#             #y = randint(0,9)
+     return x * FULL_TILE + CENTER_X+fx, y * FULL_TILE + CENTER_Y+fy
 
 #define car as Player.
 class Player(pygame.sprite.Sprite):
@@ -91,35 +98,39 @@ class Player(pygame.sprite.Sprite):
         self.dir=direction
         self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
         
-#Reset the car.
-    def reset(self):
-        self.x =  int(pygame.display.Info().current_w /2)
-        self.y =  int(pygame.display.Info().current_h /2)
-        self.speed = 0.0
-        self.dir = 0
-        self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
-        self.rect.topleft = self.x, self.y
-        self.x, self.y = findspawn()
-            
-#Emit tracks..
-    def emit_tracks(self):
-        self.tracks = True
-        
+# =============================================================================
+# #Reset the car.
+#     def reset(self):
+#         self.x =  int(pygame.display.Info().current_w /2)
+#         self.y =  int(pygame.display.Info().current_h /2)
+#         self.speed = 0.0
+#         self.dir = 0
+#         self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
+#         self.rect.topleft = self.x, self.y
+#         self.x, self.y = findspawn()
+#             
+# #Emit tracks..
+#     def emit_tracks(self):
+#         self.tracks = True
+#         
+# =============================================================================
 #Don't emit tracks..
     def reset_tracks(self):
         self.tracks = False
-
-#If the car is on grass, decrease speed and emit tracks.
-    def grass(self, value):
-        if value > GRASS_GREEN:
-            if self.speed - self.deacceleration > GRASS_SPEED * 2:
-                self.speed = self.speed - self.deacceleration * 2
-                self.emit_tracks()
-
-#Push back on impact
-    def impact(self):
-        if self.speed > 0:
-            self.speed = self.minspeed
+# =============================================================================
+# 
+# #If the car is on grass, decrease speed and emit tracks.
+#     def grass(self, value):
+#         if value > GRASS_GREEN:
+#             if self.speed - self.deacceleration > GRASS_SPEED * 2:
+#                 self.speed = self.speed - self.deacceleration * 2
+#                 self.emit_tracks()
+# 
+# #Push back on impact
+#     def impact(self):
+#         if self.speed > 0:
+#             self.speed = self.minspeed
+# =============================================================================
 
     def soften(self):
             if self.speed > 0:
@@ -131,14 +142,16 @@ class Player(pygame.sprite.Sprite):
     def accelerate(self):
         if self.speed < self.maxspeed:
             self.speed = self.speed + self.acceleration
-            if self.speed < self.maxspeed / 3:
-                self.emit_tracks()
+# =============================================================================
+#             if self.speed < self.maxspeed / 3:
+#                 self.emit_tracks()
+# =============================================================================
 
 #Deaccelerate.
     def deaccelerate(self):
         if self.speed > self.minspeed:
             self.speed = self.speed - self.deacceleration
-            self.emit_tracks()
+            #self.emit_tracks()
 
 #Steer.
     def steerleft(self,angle):
@@ -147,8 +160,10 @@ class Player(pygame.sprite.Sprite):
         #self.dir = self.dir+self.steering
         if self.dir > 360:
             self.dir = self.dir-360
-        if (self.speed > self.maxspeed / 2):
-            self.emit_tracks()
+# =============================================================================
+#         if (self.speed > self.maxspeed / 2):
+#             self.emit_tracks()
+# =============================================================================
         self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
 
 #Steer.
