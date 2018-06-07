@@ -10,8 +10,13 @@ from loader import load_image
 
 
 FULL_TILE = 1000
-CENTER_X =  800
-CENTER_Y =  450
+# =============================================================================
+# CENTER_X =  800
+# CENTER_Y =  450
+# 
+# =============================================================================
+CENTER_X =  680
+CENTER_Y =  384
 
 class cone(pygame.sprite.Sprite):
     

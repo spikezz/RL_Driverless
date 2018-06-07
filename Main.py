@@ -37,8 +37,12 @@ canvas.set_alpha(0)
 clock = pygame.time.Clock()
 car = player.Player()
 cam = camera.Camera()
-coneb=traffic_cone.cone(800,380,-1,car.x,car.y)
-coney=traffic_cone.cone(800,510,1,car.x,car.y)
+# =============================================================================
+# coneb=traffic_cone.cone(800,380,-1,car.x,car.y)
+# coney=traffic_cone.cone(800,510,1,car.x,car.y)
+# =============================================================================
+coneb=traffic_cone.cone(680,314,-1,car.x,car.y)
+coney=traffic_cone.cone(680,444,1,car.x,car.y)
 ##create some objects
 
 
@@ -93,7 +97,12 @@ half_middle_axis_length=20
 half_horizontal_axis_length=17
 radius_of_wheel=10
 el_length=500
-##constant of the car
+##specification of the car
+
+##action relevant
+turing_speed=1.0
+##action relevant
+
 
 model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
 ###initial Model of the car
@@ -101,7 +110,7 @@ model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_le
 
 ##count/COUNT_FREQUENZ is the real time
 count=0 #every loop +1 for timer
-COUNT_FREQUENZ=10#FPS Frame(loop times) per second
+COUNT_FREQUENZ=200#FPS Frame(loop times) per second
 start_timer=False# switch for timer
 ##count/COUNT_FREQUENZ is the real time
 
@@ -144,15 +153,27 @@ cone_x=CENTER[0]
 cone_y=CENTER[1]
 #position_sensor=[0,0]
 i=0
-draw_blue_cone=[0,0]
-draw_yellow_cone=[0,0]
-dis_yellow=0
-dis_blue=0
+p=0#yellow
+q=0#blue
+draw_blue_cone=[]
+draw_yellow_cone=[]
+dis_yellow=[]
+dis_blue=[]
+vektor_blue=[]
+vektor_yellow=[]
 ##constant for cone
 
+##append draw element
+draw_blue_cone.append([0,0])
+draw_yellow_cone.append([0,0])
+dis_blue.append(0)
+dis_yellow.append(0)
+vektor_blue.append([0,0])
+vektor_yellow.append([0,0])
+##append draw element
 
 ##state
-state=[[0,0],[0,0],[0,0]]
+state=[0,0,0,0]
 ##state
 
 ###main loop process
@@ -189,6 +210,14 @@ while True:
                 else: 
                     
                     start_timer=False
+            
+           
+                
+        if event.type == KEYUP :    
+            
+            if event.key == K_LEFT or event.key == K_RIGHT:
+                
+                angle=0
 # =============================================================================
 #             
 #             if event.key == K_a : 
@@ -223,6 +252,11 @@ while True:
                 list_cone_yellow.append(cone_new)
                 cone_s.add(cone_new)
                 
+                draw_yellow_cone.append([0,0])
+                dis_yellow.append(0)
+                vektor_yellow.append([0,0])
+                p=p+1
+                
             elif pygame.mouse.get_pressed()==(False,False,True):
                 
                 cone_x, cone_y = pygame.mouse.get_pos()
@@ -230,6 +264,10 @@ while True:
                 list_cone_blue.append(cone_new)
                 cone_s.add(cone_new)
                
+                draw_blue_cone.append([0,0])
+                dis_blue.append(0)
+                vektor_blue.append([0,0])
+                q=q+1
                 
     ##system event
     
@@ -280,25 +318,29 @@ while True:
         
     if keys[K_LEFT]:
         
+        turing_speed=1
+        
         if angle<0:
             
             angle=-1
             
         if angle<46:
             
-            angle=angle+1
+            angle=angle+turing_speed
 
         #if angle==0:
            
     if keys[K_RIGHT]:
-       
+        
+        turing_speed=-1
+        
         if angle>0:
             
             angle=1
         
         if angle>-46:
             
-            angle=angle-1
+            angle=angle+turing_speed
    
         #if angle==0:
            
@@ -306,9 +348,7 @@ while True:
         
         car.accelerate()
         
-    else:
-        
-        car.soften()
+
         
     if keys[K_DOWN]:
         
@@ -329,7 +369,7 @@ while True:
     
 
     
-    
+    car.soften()
     #camera position reset
     cam.set_pos(car.x, car.y)
     
@@ -341,10 +381,20 @@ while True:
     x_old=car.x
     y_old=car.y
     
-    dis_yellow=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
-    dis_blue=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
-                  
+    ##
+    for i in range (0, p+1):
+        
+        dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
+        draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
+    
+    for i in range (0, q+1):
+        
+        dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
+        draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
 
+    #postion_sensor=[(model[7][0][0]-CENTER[0]+car.x),(model[7][0][1]-CENTER[1]+car.y)]
+    ##
+       
     ##text setting
     
     text_fps = font.render('FPS: ' + str(int(clock.get_fps())), 1, (0, 0, 102))
@@ -371,10 +421,10 @@ while True:
     text_colour= font.render('colour: ' + str(round(screen.get_at(((int(CENTER[0]-50), int(CENTER[1]-50)))).g,2)), 1, (0, 0, 102))   
     textpos_colour = text_colour.get_rect(centery=305, left=20)
     
-    text_dis_yellow= font.render('distance to yellow cone: ' + str(round(float(dis_yellow),2)), 1, (0, 0, 102))   
+    text_dis_yellow= font.render('distance to yellow cone: ' + str(round(float(dis_yellow[0]),2)), 1, (0, 0, 102))   
     textpos_dis_yellow = text_dis_yellow.get_rect(centery=345, left=20)
     
-    text_dis_blue= font.render('distance to blue cone: ' + str(round(float(dis_blue),2)), 1, (0, 0, 102))   
+    text_dis_blue= font.render('distance to blue cone: ' + str(round(float(dis_blue[0]),2)), 1, (0, 0, 102))   
     textpos_dis_blue =text_dis_blue.get_rect(centery=385, left=20)
     
     
@@ -433,25 +483,27 @@ while True:
     ##determine the center of the car moving circle in the coordinate of the sprite layer,connection between surface canvas and sprite layer
   
     
-    ##
-    #postion_sensor=[(model[7][0][0]-CENTER[0]+car.x),(model[7][0][1]-CENTER[1]+car.y)]
-    draw_blue_cone=(list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y)
-    draw_yellow_cone=(list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y)
-    ##
+
     
     
     ##
-    vektor_blue=cv.input_vektor_position(model,draw_blue_cone,CENTER,car.dir)
-    vektor_yellow=cv.input_vektor_position(model,draw_yellow_cone,CENTER,car.dir)
+    for i in range (0, q+1):
+        
+        vektor_blue[i]=cv.input_vektor_position(model,draw_blue_cone[i],CENTER,car.dir)
+    
+    for i in range (0, p+1):
+        
+        vektor_yellow[i]=cv.input_vektor_position(model,draw_yellow_cone[i],CENTER,car.dir)
+
     vektor_speed=[speed*math.cos(math.radians(270-angle)),car.speed*COUNT_FREQUENZ*math.sin(math.radians(270-angle))]
     ##
     
     
     ##
-    text_yellow= font.render('vektor_yellow: ' + '( '+str(round(float(vektor_yellow[0]),2))+' , '+str(round(float(vektor_yellow[1]),2))+' )', 1, (0, 0, 102))   
+    text_yellow= font.render('vektor_yellow: ' + '( '+str(round(float(vektor_yellow[0][0]),2))+' , '+str(round(float(vektor_yellow[0][1]),2))+' )', 1, (0, 0, 102))   
     textpos_yellow = text_yellow.get_rect(centery=425, left=20)
     
-    text_blue= font.render('vektor_blue: '+ '( ' + str(round(float(vektor_blue[0]),2))+' , '+str(round(float(vektor_blue[1]),2))+' )', 1, (0, 0, 102))   
+    text_blue= font.render('vektor_blue: '+ '( ' + str(round(float(vektor_blue[0][0]),2))+' , '+str(round(float(vektor_blue[0][1]),2))+' )', 1, (0, 0, 102))   
     textpos_blue = text_blue.get_rect(centery=465, left=20)
     
     text_speed_v= font.render('vektor_speed: ' +  '( ' + str(round(float(vektor_speed[0]),2))+' , '+str(round(float(vektor_speed[1]),2))+' )', 1, (0, 0, 102))   
@@ -508,9 +560,13 @@ while True:
     pygame.draw.line(canvas, (255,255,102), model[16][0],model[17][0],2)
     ##draw back axis extension
     
+    for i in range (0, q+1):
     
-    pygame.draw.line(canvas, (0,255,255), model[7][0],draw_blue_cone,2)
-    pygame.draw.line(canvas, (255,255,0), model[7][0],draw_yellow_cone,2)
+        pygame.draw.line(canvas, (0,255,255), model[7][0],draw_blue_cone[i],2)
+        
+    for i in range (0, p+1):
+        
+        pygame.draw.line(canvas, (255,255,0), model[7][0],draw_yellow_cone[i],2)
     
     ##draw front axis extension
     if angle >= 2.3 or angle==0:
@@ -568,7 +624,7 @@ while True:
     state[2]=vektor_speed
 # =============================================================================
 #     action=(action_turning,action_accelerate)
-#     angle=action[0]
+#     turing_speed=action[0]
 #     car.acceleration=action[1]
 # =============================================================================
     ##interface for RL 

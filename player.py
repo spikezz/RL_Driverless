@@ -52,8 +52,13 @@ def findspawn():
      
      x=12#row
      y=4#line
+# =============================================================================
+#      fx=-100
+#      fy=-320
+#      
+# =============================================================================
      fx=-100
-     fy=-320
+     fy=-250
 #     #while(maps.map_1[y][x] == 5):
 #             #x = randint(0,9)
 #             #y = randint(0,9)
@@ -133,10 +138,15 @@ class Player(pygame.sprite.Sprite):
 # =============================================================================
 
     def soften(self):
-            if self.speed > 0:
-                self.speed -= self.softening
-            if self.speed < 0:
-                self.speed += self.softening
+        
+        
+        if self.speed > 0.04 :
+            self.speed -= self.softening
+        elif self.speed < -0.04:
+            self.speed += self.softening
+        else:
+            self.speed=0
+                
 
 #Accelerate the vehicle
     def accelerate(self):
