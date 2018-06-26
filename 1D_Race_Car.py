@@ -21,7 +21,7 @@ np.random.seed()
 
 N_STATES = 11 # the length of the 1 dimensional world
 ACTIONS = ['left_2','left_1', 'hold','right_1','right_2']  # available actions
-EPSILON = 0.99   # greedy police je stabil die umgebung je höhe die Epsilon
+EPSILON = 0.99  # greedy police je stabil die umgebung je höhe die Epsilon
 ALPHA = 0.1     # learning rate
 GAMMA = 0.9    # discount factor
 MAX_EPISODES = 100  # maximum episodes
