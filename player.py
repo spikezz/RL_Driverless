@@ -235,7 +235,9 @@ class Player(pygame.sprite.Sprite):
             self.reset_tracks()
             
 
-
+    def impact(self):
+        if self.speed > 0:
+            self.speed = -self.minspeed
 
 
         

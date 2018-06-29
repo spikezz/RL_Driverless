@@ -5,15 +5,17 @@ Created on Tue May  1 11:14:08 2018
 @author: Asgard
 """
 import sys, pygame, math
-import player,maps,tracks,camera,traffic_cone
+import player,maps,tracks,camera,traffic_cone , path
 import canvas as cv
 import calculation as cal
+import numpy as np
 from pygame.locals import *
 from loader import load_image
+from operator import itemgetter, attrgetter
 
 
 pygame.init()
-screen = pygame.display.set_mode((pygame.display.Info().current_w,pygame.display.Info().current_h),pygame.FULLSCREEN)
+screen = pygame.display.set_mode((1360,768),0)
 pygame.display.set_caption('Karat Simulation')
 font = pygame.font.Font(None, 40)
 
@@ -32,6 +34,21 @@ canvas = canvas.convert_alpha()
 canvas.set_alpha(0)
 ##the transparent canvas for drawing the necessary geometric relationship.
 
+#testcode for shell
+#CENTER_X = 800
+#CENTER_Y = 450
+
+
+##find the center of screen
+CENTER_X =  float(pygame.display.Info().current_w /2)
+CENTER_Y =  float(pygame.display.Info().current_h /2)
+CENTER=(CENTER_X,CENTER_Y)
+##find the center of screen
+
+##constant of path
+half_path_wide=70
+##constant of path
+
 
 ##create some objects
 clock = pygame.time.Clock()
@@ -42,17 +59,20 @@ cam = camera.Camera()
 # coney=traffic_cone.cone(800,510,1,car.x,car.y)
 # =============================================================================
 coneb=traffic_cone.cone(680,314,-1,car.x,car.y)
-coney=traffic_cone.cone(680,444,1,car.x,car.y)
+coney=traffic_cone.cone(680,454,1,car.x,car.y)
+startpoint=path.path(CENTER[0],CENTER[1],car.x,car.y)
 ##create some objects
 
 
 ##create the spriteGroup contains objects
 list_cone_yellow=[]
 list_cone_blue=[]
+list_path_point=[]
 map_s= pygame.sprite.Group()
 player_s= pygame.sprite.Group()
 tracks_s= pygame.sprite.Group()
 cone_s  = pygame.sprite.Group()
+path_s  = pygame.sprite.Group()
 ##create the spriteGroup contains objects
 
 
@@ -66,8 +86,10 @@ cam.set_pos(car.x, car.y)
 player_s.add(car)
 cone_s.add(coneb)
 cone_s.add(coney)
+path_s.add(startpoint)
 list_cone_blue.append(coneb)
 list_cone_yellow.append(coney)
+list_path_point.append(startpoint)
 ##add car
 
 
@@ -77,16 +99,7 @@ angle=0#the turning angle of the wheel
 ##start angle from car
 
 
-#testcode for shell
-#CENTER_X = 800
-#CENTER_Y = 450
 
-
-##find the center of screen
-CENTER_X =  float(pygame.display.Info().current_w /2)
-CENTER_Y =  float(pygame.display.Info().current_h /2)
-CENTER=(CENTER_X,CENTER_Y)
-##find the center of screen
 
 
 ###initial Model of the car
@@ -149,10 +162,11 @@ for x in range (0,7):
        
         
 ##constant for cone
-cone_x=CENTER[0]
-cone_y=CENTER[1]
+#cone_x=CENTER[0]
+#cone_y=CENTER[1]
 #position_sensor=[0,0]
 i=0
+k=0
 p=0#yellow
 q=0#blue
 draw_blue_cone=[]
@@ -162,6 +176,19 @@ dis_blue=[]
 vektor_blue=[]
 vektor_yellow=[]
 ##constant for cone
+
+##constant for path
+j=0
+path_x=0
+path_y=0
+ctrl_pressed=False
+dis_path=0
+last_point=[startpoint.x,startpoint.y]
+draw_path=[]
+draw_path.append([0,0])
+##constant for path
+
+
 
 ##append draw element
 draw_blue_cone.append([0,0])
@@ -173,105 +200,15 @@ vektor_yellow.append([0,0])
 ##append draw element
 
 ##state
-state=[0,0,0,0]
+state=[[],0,0,0]
 ##state
 
 ###main loop process
         
 while True:
-    ##system event
-    for event in pygame.event.get():
-        
-        # quit for windows
-        if event.type == QUIT:
-                    
-            pygame.quit()
-            
-            sys.exit()
 
-
-                        
-        if event.type == KEYDOWN :
-            
-            # quit for esc key
-            if event.key == K_ESCAPE:  
-                            
-                pygame.quit()
-                
-                sys.exit()
-                
-            #timer
-            if event.key == K_SPACE :  
-                
-                if start_timer==False: 
-                    
-                    start_timer=True
-                    
-                else: 
-                    
-                    start_timer=False
-            
-           
-                
-        if event.type == KEYUP :    
-            
-            if event.key == K_LEFT or event.key == K_RIGHT:
-                
-                angle=0
-# =============================================================================
-#             
-#             if event.key == K_a : 
-#                 
-#                     i=i+1
-#                     
-#             if event.key == K_s : 
-#                 
-#                 if (i<(len(list_cone_yellow)) and i<(len(list_cone_blue))):
-#                     
-#                     show2=cal.calculate_r((list_cone_blue[i].x,list_cone_blue[i].y),(list_cone_yellow[i].x,list_cone_yellow[i].y))
-#                     dis_yellow=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x,list_cone_yellow[i].y))
-#                     dis_blue=cal.calculate_r((list_cone_blue[i].x,list_cone_blue[i].y),(car.x,car.y))
-#                     
-#                 
-# =============================================================================
-                
-        if event.type == MOUSEBUTTONDOWN:
-            
-            if start_timer==False: 
-                    
-                start_timer=True
-                    
-            else: 
-                    
-                start_timer=False
-                
-            if pygame.mouse.get_pressed()==(True,False,False):
-                
-                cone_x, cone_y = pygame.mouse.get_pos()
-                cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
-                list_cone_yellow.append(cone_new)
-                cone_s.add(cone_new)
-                
-                draw_yellow_cone.append([0,0])
-                dis_yellow.append(0)
-                vektor_yellow.append([0,0])
-                p=p+1
-                
-            elif pygame.mouse.get_pressed()==(False,False,True):
-                
-                cone_x, cone_y = pygame.mouse.get_pos()
-                cone_new=traffic_cone.cone(cone_x,cone_y,-1,car.x,car.y)
-                list_cone_blue.append(cone_new)
-                cone_s.add(cone_new)
-               
-                draw_blue_cone.append([0,0])
-                dis_blue.append(0)
-                vektor_blue.append([0,0])
-                q=q+1
-                
-    ##system event
     
-    show1=len(list_cone_yellow)
+    #show1=len(list_cone_yellow)
     ##key event continually
     keys = pygame.key.get_pressed()
     
@@ -357,7 +294,137 @@ while True:
     if keys[K_BACKSPACE]:
         
         car.speed=0
+    
+    if keys[K_LCTRL] : 
         
+        ctrl_pressed=True
+        
+        if pygame.mouse.get_pressed()==(True,False,False):
+            
+            path_x, path_y = pygame.mouse.get_pos()
+            dis_path=cal.calculate_r((path_x+car.x,path_y+car.y),last_point)
+            
+            if dis_path>100:
+                #pass
+                
+                path_new=path.path(path_x,path_y,car.x,car.y)
+                list_path_point.append(path_new)  
+                path_s.add(path_new)  
+                
+                
+                
+                line=[last_point,[path_new.x,path_new.y]]
+                
+                cone_x, cone_y = cal.calculate_t(line,1,half_path_wide,car.x,car.y)
+                cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
+                list_cone_yellow.append(cone_new)
+                cone_s.add(cone_new)
+                
+                draw_yellow_cone.append([0,0])
+                dis_yellow.append(0)
+                vektor_yellow.append([0,0])
+                p=p+1
+                
+                cone_x, cone_y = cal.calculate_t(line,-1,half_path_wide,car.x,car.y)
+                cone_new=traffic_cone.cone(cone_x,cone_y,-1,car.x,car.y)
+                list_cone_blue.append(cone_new)
+                cone_s.add(cone_new)
+               
+                draw_blue_cone.append([0,0])
+                dis_blue.append(0)
+                vektor_blue.append([0,0])
+                q=q+1
+                
+                last_point=[path_x+car.x,path_y+car.y]
+                draw_path.append([0,0])
+                j=j+1
+    else:
+        
+        ctrl_pressed=False
+            
+    ##system event
+    for event in pygame.event.get():
+        
+        # quit for windows
+        if event.type == QUIT:
+                    
+            pygame.quit()
+            
+            sys.exit()
+
+                        
+        if event.type == KEYDOWN :
+            
+            # quit for esc key
+            if event.key == K_ESCAPE:  
+                            
+                pygame.quit()
+                
+                sys.exit()
+                
+            #timer
+            if event.key == K_SPACE :  
+                
+                if start_timer==False: 
+                    
+                    start_timer=True
+                    
+                else: 
+                    
+                    start_timer=False
+                    
+                
+        if event.type == KEYUP :    
+            
+            if event.key == K_LEFT or event.key == K_RIGHT:
+                
+                angle=0
+# =============================================================================
+#             
+#             if event.key == K_a : 
+#                 
+#                     i=i+1
+#                     
+#             if event.key == K_s : 
+#                 
+#                 if (i<(len(list_cone_yellow)) and i<(len(list_cone_blue))):
+#                     
+#                     show2=cal.calculate_r((list_cone_blue[i].x,list_cone_blue[i].y),(list_cone_yellow[i].x,list_cone_yellow[i].y))
+#                     dis_yellow=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x,list_cone_yellow[i].y))
+#                     dis_blue=cal.calculate_r((list_cone_blue[i].x,list_cone_blue[i].y),(car.x,car.y))
+#                     
+#                 
+# =============================================================================
+                
+        if event.type == MOUSEBUTTONDOWN and ctrl_pressed==False:
+            
+
+                
+            if pygame.mouse.get_pressed()==(True,False,False):
+                
+                cone_x, cone_y = pygame.mouse.get_pos()
+                cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
+                list_cone_yellow.append(cone_new)
+                cone_s.add(cone_new)
+                
+                draw_yellow_cone.append([0,0])
+                dis_yellow.append(0)
+                vektor_yellow.append([0,0])
+                p=p+1
+                
+            elif pygame.mouse.get_pressed()==(False,False,True) :
+                
+                cone_x, cone_y = pygame.mouse.get_pos()
+                cone_new=traffic_cone.cone(cone_x,cone_y,-1,car.x,car.y)
+                list_cone_blue.append(cone_new)
+                cone_s.add(cone_new)
+               
+                draw_blue_cone.append([0,0])
+                dis_blue.append(0)
+                vektor_blue.append([0,0])
+                q=q+1
+                
+    ##system event
 # =============================================================================
 #     if keys[K_DELETE]:
 #         
@@ -392,6 +459,11 @@ while True:
         dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
         draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
 
+    for i in range (0, j+1):
+        
+        draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
+        
+        
     #postion_sensor=[(model[7][0][0]-CENTER[0]+car.x),(model[7][0][1]-CENTER[1]+car.y)]
     ##
        
@@ -467,15 +539,22 @@ while True:
     ##
     
     
-    ##
+    ##update map
     map_s.update(cam.x, cam.y)
     map_s.draw(screen)
-    ##
+    ##update map
     
-        
+    ##draw cones
     cone_s.update(cam.x, cam.y)
     cone_s.draw(screen)
+    ##draw cones
     
+    ##draw path point
+    path_s.update(cam.x,cam.y)
+    path_s.draw(screen)
+    
+    
+    ##draw path point
     
     ##determine the center of the car moving circle in the coordinate of the sprite layer,connection between surface canvas and sprite layer
     car.rpl=(model[18][0][0]-CENTER[0]+car.x,model[18][0][1]-CENTER[1]+car.y)
@@ -512,10 +591,10 @@ while True:
     
     
     #anything want to show
-    text_show1= font.render('vektor_speed_x: ' + str(round(float(vektor_speed[0]),2)), 1, (0, 0, 102))   
+    text_show1= font.render('path_x: ' + str(round(float(path_x),2)), 1, (0, 0, 102))   
     textpos_show1 = text_dir.get_rect(centery=545, left=20)
     
-    text_show2= font.render('vektor_speed_y: ' + str(round(float(vektor_speed[1]),2)), 1, (0, 0, 102))   
+    text_show2= font.render('path_y: ' + str(round(float(path_y),2)), 1, (0, 0, 102))   
     textpos_show2 = text_dir.get_rect(centery=585, left=20)
     #anything want to show
     
@@ -552,7 +631,6 @@ while True:
     pygame.draw.line(canvas, (255,255,255), model[10][0], model[11][0],4)
     pygame.draw.line(canvas, (255,255,255), model[12][0], model[13][0],4)#back wheel
     pygame.draw.line(canvas, (255,255,255), model[8][0], model[9][0],4)#back axis
-
     ##draw model of the car
        
 
@@ -560,6 +638,7 @@ while True:
     pygame.draw.line(canvas, (255,255,102), model[16][0],model[17][0],2)
     ##draw back axis extension
     
+    ##draw distance to cones
     for i in range (0, q+1):
     
         pygame.draw.line(canvas, (0,255,255), model[7][0],draw_blue_cone[i],2)
@@ -567,6 +646,14 @@ while True:
     for i in range (0, p+1):
         
         pygame.draw.line(canvas, (255,255,0), model[7][0],draw_yellow_cone[i],2)
+    ##draw distance to cones
+    
+    
+    ##draw path
+    for i in range (1, j+1):
+        
+        pygame.draw.line(canvas, (0,255,0), draw_path[i-1],draw_path[i],2)
+    ##draw path
     
     ##draw front axis extension
     if angle >= 2.3 or angle==0:
@@ -580,7 +667,7 @@ while True:
     ##draw front axis extension
     
     
-    ##draw  the car moving circle in canvas
+    ##draw  the circle which car moving along in canvas
     if  angle>0:
         
         pygame.draw.arc(canvas, (255,255,102), (model[18][0][0]-model[19],model[18][0][1]-model[19],2*model[19],2*model[19]), 0, 360, 3)
@@ -619,9 +706,34 @@ while True:
     ##start drawing
     
     ##interface for RL 
-    state[0]=vektor_blue
-    state[1]=vektor_yellow
-    state[2]=vektor_speed
+
+
+    state_sort=np.vstack((np.vstack(vektor_blue),np.vstack(vektor_yellow)))
+    state_sort_temp=[]
+    state_sort_end=[]
+    
+    for i in range (0, p+q+2):
+      
+       state_sort_temp.append([cal.calculate_sita_r(state_sort[i],[0,0]),state_sort[i]])
+
+    state_sort=sorted(state_sort_temp)
+    #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    #print (state_sort)
+    
+    for i in range (0, p+q+2):
+        
+        state_sort_end.append(state_sort[i][1])
+        
+    #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    state[0]=state_sort_end    
+    state[3]=np.vstack(state[0]).ravel()
+    state[1]=np.vstack(vektor_speed).ravel()
+    state[2]=angle
+    state_input=np.hstack((state[1],state[2],state[3]))
+    print (state_input)
+    #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+
+
 # =============================================================================
 #     action=(action_turning,action_accelerate)
 #     turing_speed=action[0]
@@ -636,6 +748,11 @@ while True:
 
         count=count+1
     ##timer 
+    
+    if pygame.sprite.spritecollide(car, cone_s, False):
+            car.impact()
+
+    
     
     ##clock tick
     clock.tick_busy_loop(COUNT_FREQUENZ)
