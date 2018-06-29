@@ -166,7 +166,6 @@ for x in range (0,7):
 #cone_y=CENTER[1]
 #position_sensor=[0,0]
 i=0
-k=0
 p=0#yellow
 q=0#blue
 draw_blue_cone=[]
@@ -188,8 +187,11 @@ draw_path=[]
 draw_path.append([0,0])
 ##constant for path
 
-
-
+##constant for lidar
+k=0
+l=0
+bound_lidar=CENTER[0]
+##constant for lidar
 ##append draw element
 draw_blue_cone.append([0,0])
 draw_yellow_cone.append([0,0])
@@ -706,31 +708,50 @@ while True:
     ##start drawing
     
     ##interface for RL 
+    vektor_blue_temp=[]
+    vektor_yellow_temp=[]
 
-
-    state_sort=np.vstack((np.vstack(vektor_blue),np.vstack(vektor_yellow)))
-    state_sort_temp=[]
-    state_sort_end=[]
-    
-    for i in range (0, p+q+2):
-      
-       state_sort_temp.append([cal.calculate_sita_r(state_sort[i],[0,0]),state_sort[i]])
-
-    state_sort=sorted(state_sort_temp)
-    #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    #print (state_sort)
-    
-    for i in range (0, p+q+2):
+    for i in range (0, q+1):
         
-        state_sort_end.append(state_sort[i][1])
+        if dis_blue[i]<bound_lidar:
+            
+            vektor_blue_temp.append(vektor_blue[i])
+            
+    for i in range (0, p+1):
         
-    #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    state[0]=state_sort_end    
-    state[3]=np.vstack(state[0]).ravel()
-    state[1]=np.vstack(vektor_speed).ravel()
-    state[2]=angle
-    state_input=np.hstack((state[1],state[2],state[3]))
-    print (state_input)
+        if dis_yellow[i]<bound_lidar:
+            
+            vektor_yellow_temp.append(vektor_yellow[i])
+            
+    
+    k=len(vektor_blue_temp)
+    l=len(vektor_yellow_temp)
+    if k>0 and l>0:
+        state_sort=np.vstack((np.vstack(vektor_blue_temp),np.vstack(vektor_yellow_temp)))
+        state_sort_temp=[]
+        state_sort_end=[]
+        
+        for i in range (0, k+l):
+          
+           state_sort_temp.append([cal.calculate_sita_r(state_sort[i],[0,0]),state_sort[i]])
+    
+        state_sort=sorted(state_sort_temp)
+        print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        print (state_sort)
+        
+        for i in range (0, k+l):
+            
+            state_sort_end.append(state_sort[i][1])
+            
+        print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        state[0]=state_sort_end    
+        state[3]=np.vstack(state[0]).ravel()
+        state[1]=np.vstack(vektor_speed).ravel()
+        state[2]=angle
+        state_input=np.hstack((state[1],state[2],state[3]))
+        print (state_input)
+        print ('size:')
+        print (state_input.size)
     #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
 
