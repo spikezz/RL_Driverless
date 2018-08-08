@@ -17,7 +17,7 @@ def calculate_r(point,CENTER):
 
 
 def calculate_sita(symbol180,point,CENTER):
-
+    sita=0
     if point[1]-CENTER[1] !=0:
         
         if symbol180==1:

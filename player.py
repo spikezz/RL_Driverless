@@ -102,6 +102,26 @@ class Player(pygame.sprite.Sprite):
         #self.dir is the direction of the car, car.dir=0 means face top,the positive direction is anticlockwise
         self.dir=direction
         self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
+    def reset(self):
+        self.image = load_image('f1.png')
+        self.rect = self.image.get_rect()
+        self.area = self.screen.get_rect()
+        CENTER_X =  int(pygame.display.Info().current_w /2)
+        CENTER_Y =  int(pygame.display.Info().current_h /2)
+        self.x = CENTER_X
+        self.y = CENTER_Y
+        self.rect.topleft = self.x-17, self.y-33#middle of the car
+        self.x, self.y = findspawn()
+        self.dir = 0
+        
+        self.speed = 0.0
+        self.tracks = False
+        self.wheelangle=0.0
+        self.rrl=0.0
+        self.rrr=0.0
+        self.rpl=(0,0)
+        self.rpr=(0,0)
+        self.rrm=0
         
 # =============================================================================
 # #Reset the car.
