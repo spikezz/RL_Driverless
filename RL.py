@@ -38,7 +38,7 @@ class PolicyGradient:
         self.learning_rate=LR
         self.reward_decay=RD
         self.ob_set,self.a_set,self.r_set=[],[],[]
-        
+        self.loss=tf.Variable(0,dtype=tf.float32)
         self._build_net()
         
         self.sess=tf.Session()
@@ -83,7 +83,7 @@ class PolicyGradient:
             
             neg_log_prob=tf. reduce_sum(-tf.log(self.all_act_prob)*tf.one_hot(self.tf_acts,self.n_actions),axis=1)
             loss=tf.reduce_mean(neg_log_prob*self.tf_vt)
-            
+
         
         with tf.name_scope('optimizer'):
             
@@ -91,7 +91,6 @@ class PolicyGradient:
     
     def choose_action(self, observation):
         
-        #prob=self.sess.run(self.all_act_prob,feed_dict={self.tf_obs:observation[np.newaxis,:]})
         prob=self.sess.run(self.all_act_prob,feed_dict={self.tf_obs:observation[np.newaxis, :]})
         action = np.random.choice(range(prob.shape[1]),p=prob.ravel())
         print("prob:",prob)
@@ -102,13 +101,13 @@ class PolicyGradient:
         self.a_set.append(a)
         self.r_set.append(r)
         print("action:",self.a_set)
-        print("reward:",self.r_set)
+        #print("reward:",self.r_set)
     def learn(self):
-        
+
         discounted_r_set_norm=  self._discount_norm_rewards()
         
         self.sess.run(self.train,feed_dict={self.tf_obs:np.vstack(self.ob_set),self.tf_acts:np.array(self.a_set),self.tf_vt:discounted_r_set_norm,})
-        print(self.train)
+
         self.ob_set,self.a_set,self.r_set=[],[],[]  
         
         return discounted_r_set_norm

@@ -214,16 +214,18 @@ input_max=100
 action_n=5
 features_n=input_max
 rd= 0.99
-lr = 0.02
+lr = 0.00001
 action = 0
 observation=np.zeros(input_max)
 
+rr=[]
 distance=0
 done=False
 start_action=False
 distance_faktor=0.001
-speed_faktor=0.001
+speed_faktor=0.01
 episode=0
+ep_total=0
 running_reward =0
 vt=0
 reward=1
@@ -249,49 +251,51 @@ RL = PolicyGradient(
 ##
 
 
-path_man=[]
-for t in range (1,10):
-    path_man.append([CENTER[0]-50*t,CENTER[1]])
-     
-for t in range (1,10):
-    path_man.append([path_man[8][0]-50*t,path_man[8][1]+20*t])
-    
-for pa in path_man:
-    path_x=pa[0]
-    path_y=pa[1]
-    
-    path_new=path.path(path_x,path_y,car.x,car.y)
-    list_path_point.append(path_new)  
-    path_s.add(path_new)  
-    
-    
-    
-    line=[last_point,[path_new.x,path_new.y]]
-    
-    cone_x, cone_y = cal.calculate_t(line,1,half_path_wide,car.x,car.y)
-    cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
-    list_cone_yellow.append(cone_new)
-    cone_s.add(cone_new)
-    
-    draw_yellow_cone.append([0,0])
-    dis_yellow.append(0)
-    vektor_yellow.append([0,0])
-    p=p+1
-    
-    cone_x, cone_y = cal.calculate_t(line,-1,half_path_wide,car.x,car.y)
-    cone_new=traffic_cone.cone(cone_x,cone_y,-1,car.x,car.y)
-    list_cone_blue.append(cone_new)
-    cone_s.add(cone_new)
-   
-    draw_blue_cone.append([0,0])
-    dis_blue.append(0)
-    vektor_blue.append([0,0])
-    q=q+1
-
-    
-    last_point=[path_x+car.x,path_y+car.y]
-    draw_path.append([0,0])
-    j=j+1
+# =============================================================================
+# path_man=[]
+# for t in range (1,10):
+#     path_man.append([CENTER[0]-50*t,CENTER[1]])
+#      
+# for t in range (1,10):
+#     path_man.append([path_man[8][0]-50*t,path_man[8][1]+20*t])
+#     
+# for pa in path_man:
+#     path_x=pa[0]
+#     path_y=pa[1]
+#     
+#     path_new=path.path(path_x,path_y,car.x,car.y)
+#     list_path_point.append(path_new)  
+#     path_s.add(path_new)  
+#     
+#     
+#     
+#     line=[last_point,[path_new.x,path_new.y]]
+#     
+#     cone_x, cone_y = cal.calculate_t(line,1,half_path_wide,car.x,car.y)
+#     cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
+#     list_cone_yellow.append(cone_new)
+#     cone_s.add(cone_new)
+#     
+#     draw_yellow_cone.append([0,0])
+#     dis_yellow.append(0)
+#     vektor_yellow.append([0,0])
+#     p=p+1
+#     
+#     cone_x, cone_y = cal.calculate_t(line,-1,half_path_wide,car.x,car.y)
+#     cone_new=traffic_cone.cone(cone_x,cone_y,-1,car.x,car.y)
+#     list_cone_blue.append(cone_new)
+#     cone_s.add(cone_new)
+#    
+#     draw_blue_cone.append([0,0])
+#     dis_blue.append(0)
+#     vektor_blue.append([0,0])
+#     q=q+1
+# 
+#     
+#     last_point=[path_x+car.x,path_y+car.y]
+#     draw_path.append([0,0])
+#     j=j+1
+# =============================================================================
 ##
 
 
@@ -948,7 +952,7 @@ while True:
             state[2]=angle
             state_input=np.hstack((state[1],state[2],state[3]))
             #print (state_input)
-            print ('size:',state_input.size)
+            #print ('size:',state_input.size)
             for t in range(len(state_input)):
                 observation[t]=state_input[t]
             #observation=np.zeros_like()
@@ -977,11 +981,11 @@ while True:
             
             
 
-            reward=car.speed
+            reward=car.speed*speed_faktor
             
             reward_sum=reward_sum+reward
 
-            print("reward_sum:",reward_sum)
+            #print("reward_sum:",reward_sum)
             if pygame.sprite.spritecollide(car, cone_s, False) :
                 
                 car.impact()
@@ -991,7 +995,7 @@ while True:
                 reward_show=reward_sum
                 reward_sum=0
                 print("episode:",episode)
-                print("reward:",reward)
+                #print("reward:",reward)
                 distance=0
                 angle=0
                 episode=episode+1
@@ -1017,11 +1021,23 @@ while True:
         else:
             running_reward = running_reward * 0.99 + rs_sum * 0.01
         print("running_reward",running_reward)
+        rr.append(running_reward)
+        #print("rr:",rr)
         vt=RL.learn()
+        ep_total=ep_total+1
+        print("totaol train:",ep_total)
         episode=0
+
+        plt.subplot(211)
         plt.plot(vt)    # plot the episode vt
         plt.xlabel('episode steps')
         plt.ylabel('normalized state-action value')
+        plt.show()
+        #plt.cla()
+        plt.subplot(212)
+        plt.plot(rr)  
+        plt.xlabel('episode steps')
+        plt.ylabel('runing reward')
         plt.show()
 
 ###main loop process
