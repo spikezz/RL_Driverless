@@ -8,11 +8,11 @@ Created on Fri Jul 20 17:02:08 2018
 import numpy as np
 import tensorflow as tf
 
-np.random.seed(1)
-tf.set_random_seed(1)
+#np.random.seed(1)
+#tf.set_random_seed(1)
 
 #hidden layer
-H=200
+H=450
 #hidden layer
 
 #learning rate
@@ -61,18 +61,20 @@ class PolicyGradient:
                 inputs=self.tf_obs,
                 units=H,
                 activation=tf.nn.tanh,
-                kernel_initializer=tf.random_normal_initializer(mean=0,stddev=0.3),
-                bias_initializer=tf.constant_initializer(0.001),
+                #kernel_initializer=tf.random_normal_initializer(mean=0,stddev=0.3),
+                kernel_initializer=tf.random_uniform_initializer(-0.23,0.23),
+                bias_initializer=tf.constant_initializer(0),
                 name='inputs',             
                 
                 )
-        all_act = tf.layers.dense(
-            inputs=layer_1,
-            units=self.n_actions,
-            activation=None,
-            kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),
-            bias_initializer=tf.constant_initializer(0.001),
-            name='output'
+        all_act=tf.layers.dense(
+                inputs=layer_1,
+                units=self.n_actions,
+                activation=None,
+                kernel_initializer=tf.random_normal_initializer(mean=0, stddev=0.3),         
+                #kernel_initializer=tf.truncated_normal_initializer(mean=0, stddev=0.3),
+                bias_initializer=tf.constant_initializer(0),
+                name='output'
         )
 
         self.all_act_prob =tf.nn.softmax(all_act, name='act_prob') 
@@ -87,7 +89,8 @@ class PolicyGradient:
         
         with tf.name_scope('optimizer'):
             
-            self.train = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(loss)
+            #self.train = tf.train.RMSPropOptimizer(self.learning_rate).minimize(loss)
+            self.train =tf.train.GradientDescentOptimizer(self.learning_rate).minimize(loss)
     
     def choose_action(self, observation):
         
@@ -100,7 +103,7 @@ class PolicyGradient:
         self.ob_set.append(s)
         self.a_set.append(a)
         self.r_set.append(r)
-        print("action:",self.a_set)
+        #print("action:",self.a_set)
         #print("reward:",self.r_set)
     def learn(self):
 

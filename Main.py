@@ -127,7 +127,7 @@ model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_le
 
 ##count/COUNT_FREQUENZ is the real time
 count=0 #every loop +1 for timer
-COUNT_FREQUENZ=200#FPS Frame(loop times) per second
+COUNT_FREQUENZ=300#FPS Frame(loop times) per second
 start_timer=False# switch for timer
 ##count/COUNT_FREQUENZ is the real time
 
@@ -194,7 +194,7 @@ draw_path.append([0,0])
 ##constant for lidar
 k=0
 l=0
-bound_lidar=CENTER[0]
+bound_lidar=CENTER[0]*2/3
 ##constant for lidar
 ##append draw element
 draw_blue_cone.append([0,0])
@@ -214,16 +214,17 @@ input_max=100
 action_n=5
 features_n=input_max
 rd= 0.99
-lr = 0.00001
+lr = 0.001
 action = 0
 observation=np.zeros(input_max)
 
 rr=[]
 distance=0
+distance_set=[]
 done=False
 start_action=False
-distance_faktor=0.001
-speed_faktor=0.01
+distance_faktor=0.1
+speed_faktor=0.001
 episode=0
 ep_total=0
 running_reward =0
@@ -231,7 +232,7 @@ vt=0
 reward=1
 reward_show=0
 reward_sum=0
-reward_faktor=1.001
+#reward_faktor=1.001
 reward_saved=1
 for t in range (0,input_max):
     observation[t]=0
@@ -251,50 +252,73 @@ RL = PolicyGradient(
 ##
 
 
-# =============================================================================
-# path_man=[]
-# for t in range (1,10):
-#     path_man.append([CENTER[0]-50*t,CENTER[1]])
-#      
-# for t in range (1,10):
-#     path_man.append([path_man[8][0]-50*t,path_man[8][1]+20*t])
-#     
-# for pa in path_man:
-#     path_x=pa[0]
-#     path_y=pa[1]
-#     
-#     path_new=path.path(path_x,path_y,car.x,car.y)
-#     list_path_point.append(path_new)  
-#     path_s.add(path_new)  
-#     
-#     
-#     
-#     line=[last_point,[path_new.x,path_new.y]]
-#     
-#     cone_x, cone_y = cal.calculate_t(line,1,half_path_wide,car.x,car.y)
-#     cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
-#     list_cone_yellow.append(cone_new)
-#     cone_s.add(cone_new)
-#     
-#     draw_yellow_cone.append([0,0])
-#     dis_yellow.append(0)
-#     vektor_yellow.append([0,0])
-#     p=p+1
-#     
-#     cone_x, cone_y = cal.calculate_t(line,-1,half_path_wide,car.x,car.y)
-#     cone_new=traffic_cone.cone(cone_x,cone_y,-1,car.x,car.y)
-#     list_cone_blue.append(cone_new)
-#     cone_s.add(cone_new)
-#    
-#     draw_blue_cone.append([0,0])
-#     dis_blue.append(0)
-#     vektor_blue.append([0,0])
-#     q=q+1
-# 
-#     
-#     last_point=[path_x+car.x,path_y+car.y]
-#     draw_path.append([0,0])
-#     j=j+1
+path_man=[]
+corner=[]
+corner.append(32)
+corner.append(36)
+corner.append(41)
+corner.append(43)
+corner.append(44)
+corner.append(45)
+corner.append(46)
+for t in range (1,corner[0]):
+    path_man.append([CENTER[0]-49*t,CENTER[1]-3*t])
+
+for t in range (1,5):
+    path_man.append([path_man[corner[0]-2][0]-49.74*t,path_man[corner[0]-2][1]-5*t])
+    
+for t in range (1,6):
+    path_man.append([path_man[corner[1]-2][0]-49*t,path_man[corner[1]-2][1]-10*t])
+
+for t in range (1,3):
+    path_man.append([path_man[corner[2]-2][0]-45.82*t,path_man[corner[2]-2][1]-20*t])
+
+path_man.append([path_man[corner[3]-2][0]-40,path_man[corner[3]-2][1]-30])
+path_man.append([path_man[corner[4]-2][0]-31,path_man[corner[4]-2][1]-39.23])
+path_man.append([path_man[corner[5]-2][0]-19.6,path_man[corner[5]-2][1]-46])
+path_man.append([path_man[corner[6]-2][0]+14,path_man[corner[6]-2][1]-48])
+
+#for t in range (1,5):
+    #path_man.append([path_man[8][0]-50*t,path_man[8][1]+10*math.sqrt(t)])
+
+#path_man.append([path_man[30][0]-48.29,path_man[30][1]-12.94])
+#path_man.append([path_man[31][0]-25*math.sqrt(3),path_man[31][1]-25])
+for pa in path_man:
+    path_x=pa[0]
+    path_y=pa[1]
+     
+    path_new=path.path(path_x,path_y,car.x,car.y)
+    list_path_point.append(path_new)  
+    path_s.add(path_new)  
+     
+     
+     
+    line=[last_point,[path_new.x,path_new.y]]
+     
+    cone_x, cone_y = cal.calculate_t(line,1,half_path_wide,car.x,car.y)
+    cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
+    list_cone_yellow.append(cone_new)
+    cone_s.add(cone_new)
+     
+    draw_yellow_cone.append([0,0])
+    dis_yellow.append(0)
+    vektor_yellow.append([0,0])
+    p=p+1
+    
+    cone_x, cone_y = cal.calculate_t(line,-1,half_path_wide,car.x,car.y)
+    cone_new=traffic_cone.cone(cone_x,cone_y,-1,car.x,car.y)
+    list_cone_blue.append(cone_new)
+    cone_s.add(cone_new)
+   
+    draw_blue_cone.append([0,0])
+    dis_blue.append(0)
+    vektor_blue.append([0,0])
+    q=q+1
+
+    
+    last_point=[path_x+car.x,path_y+car.y]
+    draw_path.append([0,0])
+    j=j+1
 # =============================================================================
 ##
 
@@ -303,7 +327,7 @@ RL = PolicyGradient(
         
 while True:
 
-    if episode<5:
+    if episode<11:
         #show1=len(list_cone_yellow)
         ##key event continually
         
@@ -541,13 +565,15 @@ while True:
     # =============================================================================
         ##key event 
         if start_action==True:
+            
+            start_timer=True
             #print("observation:",observation)
             action=RL. choose_action(observation)
             #print("action:",action)
             
             if action==0:
                 
-                angle=0
+                #angle=0
                 car.accelerate()
                 
 
@@ -562,7 +588,11 @@ while True:
                 if angle<46:
                      
                     angle=angle+turing_speed
-                     
+                    
+                if car.speed==0:
+                    
+                    car.accelerate()
+                    
             elif action==2:
                  
                 turing_speed=-1
@@ -574,7 +604,10 @@ while True:
                 if angle>-46:
                      
                     angle=angle+turing_speed
-
+                
+                if car.speed==0:
+                    
+                    car.accelerate()
                     
             elif action==3:
                 
@@ -587,6 +620,7 @@ while True:
                 if angle<46:
                     
                     angle=angle+turing_speed
+                    
                 car.accelerate()
                 
             elif action==4:
@@ -600,8 +634,19 @@ while True:
                 if angle>-46:
                     
                     angle=angle+turing_speed
+                    
                 car.accelerate()
+            
+            elif action==5:     
                 
+                if car.speed!=0:
+                    pass               
+                    #car.deaccelerate()
+                else:
+                    pass
+                    #car.accelerate()
+#             elif action==6:
+#                 pass
 # =============================================================================
 #             elif action==3:
 #                 
@@ -844,12 +889,16 @@ while True:
         
         ##draw distance to cones
         for i in range (0, q+1):
-        
-            pygame.draw.line(canvas, (0,255,255), model[7][0],draw_blue_cone[i],2)
+            
+            if dis_blue[i]<bound_lidar:
+                
+                pygame.draw.line(canvas, (0,255,255), model[7][0],draw_blue_cone[i],2)
             
         for i in range (0, p+1):
             
-            pygame.draw.line(canvas, (255,255,0), model[7][0],draw_yellow_cone[i],2)
+            if dis_yellow[i]<bound_lidar:
+                
+                pygame.draw.line(canvas, (255,255,0), model[7][0],draw_yellow_cone[i],2)
         ##draw distance to cones
         
         
@@ -952,7 +1001,7 @@ while True:
             state[2]=angle
             state_input=np.hstack((state[1],state[2],state[3]))
             #print (state_input)
-            #print ('size:',state_input.size)
+            print ('size:',state_input.size)
             for t in range(len(state_input)):
                 observation[t]=state_input[t]
             #observation=np.zeros_like()
@@ -981,23 +1030,24 @@ while True:
             
             
 
-            reward=car.speed*speed_faktor
+            reward=car.speed*speed_faktor+distance_faktor*distance
             
             reward_sum=reward_sum+reward
 
             #print("reward_sum:",reward_sum)
-            if pygame.sprite.spritecollide(car, cone_s, False) :
+            if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 
                 car.impact()
                 car.reset()
                 car.set_start_direction(90)
-                reward=1
                 reward_show=reward_sum
                 reward_sum=0
                 print("episode:",episode)
                 #print("reward:",reward)
+                distance_set.append(distance)
                 distance=0
                 angle=0
+                count=0
                 episode=episode+1
     
             RL.store_transition(observation, action, reward)
@@ -1019,7 +1069,8 @@ while True:
         if 'running_reward' not in globals():
             running_reward = rs_sum
         else:
-            running_reward = running_reward * 0.99 + rs_sum * 0.01
+            #running_reward = running_reward * 0.99 + rs_sum * 0.01
+            running_reward = rs_sum
         print("running_reward",running_reward)
         rr.append(running_reward)
         #print("rr:",rr)
@@ -1028,16 +1079,22 @@ while True:
         print("totaol train:",ep_total)
         episode=0
 
-        plt.subplot(211)
+        plt.subplot(221)
         plt.plot(vt)    # plot the episode vt
         plt.xlabel('episode steps')
         plt.ylabel('normalized state-action value')
-        plt.show()
+        #plt.show()
         #plt.cla()
-        plt.subplot(212)
+        plt.subplot(222)
         plt.plot(rr)  
         plt.xlabel('episode steps')
         plt.ylabel('runing reward')
+        #plt.show()
+        
+        plt.subplot(223)
+        plt.plot(distance_set)  
+        plt.xlabel('episode steps')
+        plt.ylabel('distance_set')
         plt.show()
 
 ###main loop process
