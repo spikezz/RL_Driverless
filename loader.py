@@ -30,7 +30,7 @@ from pygame.locals import *
 
 #Load an image. :)
 def load_image(file, transparent = True):
-    print("Loading " + file + " ..")
+    #print("Loading " + file + " ..")
     fullname = os.path.join('bild', file)
     image = pygame.image.load(fullname)
     if transparent == True:

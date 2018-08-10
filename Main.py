@@ -194,7 +194,7 @@ draw_path.append([0,0])
 ##constant for lidar
 k=0
 l=0
-bound_lidar=CENTER[0]*3/4
+bound_lidar=CENTER[0]*2/5
 ##constant for lidar
 ##append draw element
 draw_blue_cone.append([0,0])
@@ -212,6 +212,7 @@ state=[[],0,0,0]
 ##konstant of RL
 episode=0
 ep_total=0
+ep_use=0
 
 speed_faktor=0
 distance_faktor=0.1
@@ -225,16 +226,20 @@ reward_mean=[]
 rr=[]
 rr_idx=0
 running_reward =0
-
+running_reward_max=0
+deterministic_count=5
 vt=0
 
 start_action=False
 Render=False
 
-input_max=100
-action_n=5
+input_max=60
+action_n=6
 rd= 0.99
-lr = 0.1
+lr =0.00000001
+lr_use=1
+lr_reset=0
+lr_set=[]
 features_n=input_max
 
 observation=np.zeros(input_max)
@@ -513,12 +518,41 @@ while True:
                 
                 if event.key == K_r:
                     
-                    Render=True
-                
-                if event.key == K_l:
+                    if  Render==False: 
+                        
+                        Render=True
+                        
+                    else: 
+                        
+                        Render=False
                     
-                    Render=False
+                if event.key == K_e:
+                    
+                    ep_use=0
+                    lr_reset=lr_reset+1
+                    
+                if event.key == K_d:
+                    
+                    lr=lr/10
+                    print("max lr:",lr)
+
+                if event.key == K_m:
+
+                    lr=lr*10
+                    print("max lr:",lr)
                 
+                if event.key == K_t:
+
+                    if  RL.deterministic==False: 
+                        
+                        RL.deterministic=True
+                        
+                    else: 
+                        
+                        RL.deterministic=False
+                        
+
+                    
             if event.type == KEYUP :    
                 
                 if event.key == K_LEFT or event.key == K_RIGHT:
@@ -1030,21 +1064,8 @@ while True:
             #print ('size:',state_input.size)
             for t in range(len(state_input)):
                 observation[t]=state_input[t]
-            #observation=np.zeros_like()
-            #observation.shape=(1,50)
     
-            
-        #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    
-    
-    # =============================================================================
-    #     action=(action_turning,action_accelerate)
-    #     turing_speed=action[0]
-    #     car.acceleration=action[1]
-    # =============================================================================
-        ##interface for RL 
-        
-        
+        #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')      
         
         ##timer 
         if start_timer==True:
@@ -1053,22 +1074,21 @@ while True:
         ##timer 
         #reward=distance_faktor*distance
         if start_action==True:
-            
-            
 
             reward=car.speed*speed_faktor+distance_faktor*distance
+            
+           
             
             reward_sum=reward_sum+reward
 
             
-            if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
+            if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>5:
                 
                 car.impact()
                 car.reset()
                 car.set_start_direction(90)
                 reward_show=reward_sum
-                print("episode:",episode)
-                #print("reward_sum:",reward_sum)
+                #print("episode:",episode)
                 print("FPS:",clock.get_fps())
                 reward_sum=0
                 distance_set.append(distance)
@@ -1090,60 +1110,134 @@ while True:
         ##update screen
         
     else:
-                                
 
-        done=True
         rs_sum = sum(RL.r_set)
-        if 'running_reward' not in globals():
-            running_reward = rs_sum
+        
+        #if 'running_reward' not in globals():
+            
+            #running_reward = rs_sum
 
+        #else:
+            #running_reward = running_reward * 0.01 + rs_sum * 0.99
+            
+        running_reward = rs_sum
+        
+        if running_reward_max<running_reward and ep_total>1:
+            
+            running_reward_max=running_reward
+            RL.learning_rate=lr*10
+            
         else:
-            #running_reward = running_reward * 0.99 + rs_sum * 0.01
-            running_reward = rs_sum
-
+            RL.learning_rate=lr
+            #lr=1
+            #deterministic_count=0
+            #RL.learning_rate=0.1
+            #ep_use=0
+            #lr_reset=lr_reset+1
+            
+        #if deterministic_count<0:
+        
+            #RL.deterministic=True
+            #deterministic_count=deterministic_count+1
+        #else:
+            
+            #RL.deterministic=False
+            #RL.learning_rate=0.01
         print("running_reward:",running_reward)
+        print("max_running_reward:",running_reward_max)
         
-        
-
         rr.append(running_reward)   
         rr_idx=rr_idx+1
         reward_mean.append(sum(rr)/rr_idx)
         
-# =============================================================================
-#         if reward_mean[rr_idx-1]>70000:
-#             Render=True
-# =============================================================================
-        
         print("reward_mean:",reward_mean[rr_idx-1])
-        
+        #if RL.learning_rate>0.001:
+
+        print("lr_reset:",lr_reset)
+        #RL.learning_rate=lr/(1+0.1*ep_use)
+        lr_set.append(RL.learning_rate)
+        print("learning rate:",RL.learning_rate)
+        print("max lr:",lr)
+        print("deterministic:",RL.deterministic)
+        #print("deterministic_count:",deterministic_count)
         #print("rr:",rr)
         vt=RL.learn()
 
-        ep_total=ep_total+1
-        print("totaol train:",ep_total)
-        episode=0
 
-        plt.subplot(221)
-        plt.plot(vt)    # plot the episode vt
-        plt.xlabel('episode steps')
-        plt.ylabel('normalized state-action value')
-        #plt.show()
-        #plt.cla()
-        plt.subplot(222)
+        plt.subplot(521)
         plt.plot(rr)  
         plt.xlabel('episode steps')
         plt.ylabel('runing reward')
         #plt.show()
         
-        plt.subplot(223)
-        plt.plot(distance_set)  
+        plt.subplot(522)
+        plt.plot(vt)    # plot the episode vt
         plt.xlabel('episode steps')
-        plt.ylabel('distance_set')
+        plt.ylabel('normalized state-action value')
+        #plt.show()
+        #plt.cla()
+ 
         
-        plt.subplot(224)
+# =============================================================================
+#         plt.subplot(223)
+#         plt.plot(distance_set)  
+#         plt.xlabel('episode steps')
+#         plt.ylabel('distance_set')
+# =============================================================================
+        
+        plt.subplot(523)
         plt.plot(reward_mean)  
         plt.xlabel('episode steps')
         plt.ylabel('reward_mean')
+        
+        plt.subplot(524)
+        plt.plot(RL.prob0)  
+        plt.xlabel('episode steps')
+        plt.ylabel('prob0')
+        
+        plt.subplot(525)
+        plt.plot(RL.prob1)  
+        plt.xlabel('episode steps')
+        plt.ylabel('prob1')
+        
+        plt.subplot(526)
+        plt.plot(RL.prob2)  
+        plt.xlabel('episode steps')
+        plt.ylabel('prob2')
+        
+        plt.subplot(527)
+        plt.plot(RL.prob3)  
+        plt.xlabel('episode steps')
+        plt.ylabel('prob3')
+        
+        plt.subplot(528)
+        plt.plot(RL.prob4)  
+        plt.xlabel('episode steps')
+        plt.ylabel('prob4')
+        
+        plt.subplot(529)
+        plt.plot(RL.prob5)  
+        plt.xlabel('episode steps')
+        plt.ylabel('prob5')
+        
+        plt.subplot(5,2,10)
+        plt.plot(lr_set)  
+        plt.xlabel('episode steps')
+        plt.ylabel('learning rate')
+        
         plt.show()
+        
+        RL.prob0=[]
+        RL.prob1=[]
+        RL.prob2=[]
+        RL.prob3=[]
+        RL.prob4=[]
+        RL.prob5=[]
+        
+        ep_total=ep_total+1
+        print("totaol train:",ep_total)
+        ep_use=ep_use+1
+        print("lr ep :",ep_use)
+        episode=0
 
 ###main loop process

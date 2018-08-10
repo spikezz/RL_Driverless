@@ -12,21 +12,9 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 #hidden layer
-H=210
+H=130
 #hidden layer
 
-#learning rate
-#lr = 1e-4
-#learning rate
-
-#reward dacay
-#rd= 0.99
-#reward dacay
-
-#input units
-
-input_units=100
-#input units
 
 
 resume = False 
@@ -37,6 +25,16 @@ class PolicyGradient:
         self.n_features=n_f
         self.learning_rate=LR
         self.reward_decay=RD
+        
+        self.prob0=[]
+        self.prob1=[]
+        self.prob2=[]
+        self.prob3=[]
+        self.prob4=[]
+        self.prob5=[]
+        
+        self.deterministic=False
+        
         self.ob_set,self.a_set,self.r_set=[],[],[]
         self.loss=tf.Variable(0,dtype=tf.float32)
         self._build_net()
@@ -61,15 +59,15 @@ class PolicyGradient:
                 inputs=self.tf_obs,
                 units=H,
                 activation=tf.nn.tanh,
-                #kernel_initializer=tf.random_normal_initializer(mean=0,stddev=0.3),
-                kernel_initializer=tf.random_uniform_initializer(-0.23,0.23),
+                kernel_initializer=tf.random_normal_initializer(mean=0,stddev=0.3),
+                #kernel_initializer=tf.random_uniform_initializer(-0.23,0.23),
                 bias_initializer=tf.constant_initializer(0),
                 name='h_layer1',             
                 
                 )
         layer_2=tf.layers.dense(
                 
-                inputs=self.tf_obs,
+                inputs=layer_1,
                 units=H,
                 activation=tf.nn.tanh,
                 #kernel_initializer=tf.random_normal_initializer(mean=0,stddev=0.3),
@@ -102,19 +100,36 @@ class PolicyGradient:
         
         with tf.name_scope('optimizer'):
             
-            #self.train = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
+            self.train = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
             
             #self.train = tf.train.AdagradOptimizer(self.learning_rate).minimize(loss)
             #self.train = tf.train.RMSPropOptimizer(self.learning_rate).minimize(loss)
             #self.train = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(loss)
             #self.train = tf.train.AdagradOptimizer(self.learning_rate).minimize(loss)
-            self.train = tf.train.AdadeltaOptimizer(self.learning_rate).minimize(loss)
+            #self.train = tf.train.AdadeltaOptimizer(self.learning_rate).minimize(loss)
             
     def choose_action(self, observation):
         
         prob=self.sess.run(self.all_act_prob,feed_dict={self.tf_obs:observation[np.newaxis, :]})
-        action = np.random.choice(range(prob.shape[1]),p=prob.ravel())
+        
+        if self.deterministic==False:
+            
+            action = np.random.choice(range(prob.shape[1]),p=prob.ravel())
+            
+        else:
+            
+            prob_array= np.array(prob)
+            prob_array=prob_array.flatten() 
+            action=prob_array.argmax(axis=0)
+            
+        self.prob0.append(prob[0][0])
+        self.prob1.append(prob[0][1])
+        self.prob2.append(prob[0][2])
+        self.prob3.append(prob[0][3])
+        self.prob4.append(prob[0][4])
+        self.prob5.append(prob[0][5])
         #print("prob:",prob)
+        #print("prob0:",self.prob0)
         return action
     def store_transition(self, s, a, r):
         
@@ -140,12 +155,13 @@ class PolicyGradient:
         
         for t in reversed(range(0,len(self.r_set))):
             
-            running_add = running_add*self.reward_decay+ (1-self.reward_decay)*self.r_set[t]
+            running_add = running_add*self.reward_decay+ self.r_set[t]
             discounted_rs[t]=running_add
             
         SD=np.std(discounted_rs)
-        discounted_rs=discounted_rs-np.mean(discounted_rs)
-        discounted_rs=discounted_rs/SD
+        MN=np.mean(discounted_rs)
+        discounted_rs=(discounted_rs-MN)/SD
+        
             
         
         
