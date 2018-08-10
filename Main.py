@@ -127,7 +127,7 @@ model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_le
 
 ##count/COUNT_FREQUENZ is the real time
 count=0 #every loop +1 for timer
-COUNT_FREQUENZ=300#FPS Frame(loop times) per second
+COUNT_FREQUENZ=1000#FPS Frame(loop times) per second
 start_timer=False# switch for timer
 ##count/COUNT_FREQUENZ is the real time
 
@@ -194,7 +194,7 @@ draw_path.append([0,0])
 ##constant for lidar
 k=0
 l=0
-bound_lidar=CENTER[0]*2/3
+bound_lidar=CENTER[0]*3/4
 ##constant for lidar
 ##append draw element
 draw_blue_cone.append([0,0])
@@ -214,7 +214,7 @@ input_max=100
 action_n=5
 features_n=input_max
 rd= 0.99
-lr = 0.001
+lr = 0.1
 action = 0
 observation=np.zeros(input_max)
 
@@ -224,7 +224,7 @@ distance_set=[]
 done=False
 start_action=False
 distance_faktor=0.1
-speed_faktor=0.001
+speed_faktor=0
 episode=0
 ep_total=0
 running_reward =0
@@ -232,6 +232,9 @@ vt=0
 reward=1
 reward_show=0
 reward_sum=0
+reward_mean=[]
+rr_idx=0
+Render=False
 #reward_faktor=1.001
 reward_saved=1
 for t in range (0,input_max):
@@ -327,7 +330,7 @@ for pa in path_man:
         
 while True:
 
-    if episode<11:
+    if episode<1:
         #show1=len(list_cone_yellow)
         ##key event continually
         
@@ -504,7 +507,15 @@ while True:
                     
                     car.reset()
                     car.set_start_direction(90)
+                
+                if event.key == K_r:
                     
+                    Render=True
+                
+                if event.key == K_l:
+                    
+                    Render=False
+                
             if event.type == KEYUP :    
                 
                 if event.key == K_LEFT or event.key == K_RIGHT:
@@ -639,12 +650,8 @@ while True:
             
             elif action==5:     
                 
-                if car.speed!=0:
-                    pass               
-                    #car.deaccelerate()
-                else:
-                    pass
-                    #car.accelerate()
+                pass
+
 #             elif action==6:
 #                 pass
 # =============================================================================
@@ -721,6 +728,8 @@ while True:
         text_fps = font.render('FPS: ' + str(int(clock.get_fps())), 1, (0, 0, 102))
         textpos_fps = text_fps.get_rect(centery=25, left=20)
         
+        #print("FPS:",clock.get_fps())
+        
         text_timer = font.render('Timer: ' + str(round(float(count/COUNT_FREQUENZ),2)) +'s', 1, (0, 0, 102))
         textpos_timer = text_timer.get_rect(centery=65, left=20)
          
@@ -784,23 +793,30 @@ while True:
         
         
         ##draw background
-        screen.blit(background, (0,0))
+        if Render==True:
+            
+            screen.blit(background, (0,0))
         ##
         
         
         ##update map
         map_s.update(cam.x, cam.y)
-        map_s.draw(screen)
+        if Render==True:
+            map_s.draw(screen)
         ##update map
         
         ##draw cones
         cone_s.update(cam.x, cam.y)
-        cone_s.draw(screen)
+        if Render==True:
+            
+            cone_s.draw(screen)
         ##draw cones
         
         ##draw path point
         path_s.update(cam.x,cam.y)
-        path_s.draw(screen)
+        if Render==True:
+            
+            path_s.draw(screen)
         
         
         ##draw path point
@@ -851,14 +867,18 @@ while True:
         
         ##
         player_s.update(cam.x, cam.y)
-        player_s.draw(screen)
+        if Render==True:
+            
+            player_s.draw(screen)
         ##
         
         
         ##
         tracks_s.add(tracks.Track(cam.x + CENTER[0] , cam.y + CENTER[1], car.dir))
         tracks_s.update(cam.x, cam.y)
-        tracks_s.draw(screen)
+        if Render==True:
+            
+            tracks_s.draw(screen)
         ##
         
         
@@ -933,26 +953,29 @@ while True:
         
         
         ##show canvas
-        screen.blit(canvas, (0,0))
+        if Render==True:
+            
+            screen.blit(canvas, (0,0))
         ##show canvas
         
         
         ##show text
-        screen.blit(text_fps, textpos_fps)
-        screen.blit(text_timer, textpos_timer)
-        screen.blit(text_loop, textpos_loop)
-        screen.blit(text_pos, textpos_pos)
-        screen.blit(text_posr, textpos_posr)
-        screen.blit(text_dir, textpos_dir)
-        screen.blit(text_speed, textpos_speed)
-        screen.blit(text_colour, textpos_colour)
-        screen.blit(text_dis_yellow, textpos_dis_yellow)
-        screen.blit(text_dis_blue, textpos_dis_blue)
-        screen.blit(text_yellow, textpos_yellow)
-        screen.blit(text_blue, textpos_blue)
-        screen.blit(text_speed_v, textpos_speed_v)
-        screen.blit(text_show1, textpos_show1)
-        screen.blit(text_show2, textpos_show2)
+        if Render==True:
+            screen.blit(text_fps, textpos_fps)
+            screen.blit(text_timer, textpos_timer)
+            screen.blit(text_loop, textpos_loop)
+            screen.blit(text_pos, textpos_pos)
+            screen.blit(text_posr, textpos_posr)
+            screen.blit(text_dir, textpos_dir)
+            screen.blit(text_speed, textpos_speed)
+            screen.blit(text_colour, textpos_colour)
+            screen.blit(text_dis_yellow, textpos_dis_yellow)
+            screen.blit(text_dis_blue, textpos_dis_blue)
+            screen.blit(text_yellow, textpos_yellow)
+            screen.blit(text_blue, textpos_blue)
+            screen.blit(text_speed_v, textpos_speed_v)
+            screen.blit(text_show1, textpos_show1)
+            screen.blit(text_show2, textpos_show2)
         ##show text
         
         
@@ -994,14 +1017,14 @@ while True:
                 
                 state_sort_end.append(state_sort[i][1])
                 
-            print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             state[0]=state_sort_end    
             state[3]=np.vstack(state[0]).ravel()
             state[1]=np.vstack(vektor_speed).ravel()
             state[2]=angle
             state_input=np.hstack((state[1],state[2],state[3]))
             #print (state_input)
-            print ('size:',state_input.size)
+            #print ('size:',state_input.size)
             for t in range(len(state_input)):
                 observation[t]=state_input[t]
             #observation=np.zeros_like()
@@ -1034,16 +1057,17 @@ while True:
             
             reward_sum=reward_sum+reward
 
-            #print("reward_sum:",reward_sum)
+            
             if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 
                 car.impact()
                 car.reset()
                 car.set_start_direction(90)
                 reward_show=reward_sum
-                reward_sum=0
                 print("episode:",episode)
-                #print("reward:",reward)
+                #print("reward_sum:",reward_sum)
+                print("FPS:",clock.get_fps())
+                reward_sum=0
                 distance_set.append(distance)
                 distance=0
                 angle=0
@@ -1058,7 +1082,8 @@ while True:
         ##clock tick
         
         ##update screen
-        pygame.display.update()
+        if Render==True:
+            pygame.display.update()
         ##update screen
         
     else:
@@ -1068,13 +1093,29 @@ while True:
         rs_sum = sum(RL.r_set)
         if 'running_reward' not in globals():
             running_reward = rs_sum
+
         else:
             #running_reward = running_reward * 0.99 + rs_sum * 0.01
             running_reward = rs_sum
-        print("running_reward",running_reward)
-        rr.append(running_reward)
+
+        print("running_reward:",running_reward)
+        
+        
+
+        rr.append(running_reward)   
+        rr_idx=rr_idx+1
+        reward_mean.append(sum(rr)/rr_idx)
+        
+# =============================================================================
+#         if reward_mean[rr_idx-1]>70000:
+#             Render=True
+# =============================================================================
+        
+        print("reward_mean:",reward_mean[rr_idx-1])
+        
         #print("rr:",rr)
         vt=RL.learn()
+
         ep_total=ep_total+1
         print("totaol train:",ep_total)
         episode=0
@@ -1095,6 +1136,11 @@ while True:
         plt.plot(distance_set)  
         plt.xlabel('episode steps')
         plt.ylabel('distance_set')
+        
+        plt.subplot(224)
+        plt.plot(reward_mean)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward_mean')
         plt.show()
 
 ###main loop process
