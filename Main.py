@@ -209,38 +209,41 @@ vektor_yellow.append([0,0])
 state=[[],0,0,0]
 ##state
 
-##konstant of PG
-input_max=100
-action_n=5
-features_n=input_max
-rd= 0.99
-lr = 0.1
-action = 0
-observation=np.zeros(input_max)
-
-rr=[]
-distance=0
-distance_set=[]
-done=False
-start_action=False
-distance_faktor=0.1
-speed_faktor=0
+##konstant of RL
 episode=0
 ep_total=0
-running_reward =0
-vt=0
+
+speed_faktor=0
+distance_faktor=0.1
+
+distance=0
+distance_set=[]
 reward=1
 reward_show=0
 reward_sum=0
 reward_mean=[]
+rr=[]
 rr_idx=0
+running_reward =0
+
+vt=0
+
+start_action=False
 Render=False
-#reward_faktor=1.001
-reward_saved=1
+
+input_max=100
+action_n=5
+rd= 0.99
+lr = 0.1
+features_n=input_max
+
+observation=np.zeros(input_max)
 for t in range (0,input_max):
     observation[t]=0
 
-##konstant of PG
+action = 0
+##konstant of RL
+
 
 ##PG init
 RL = PolicyGradient(
