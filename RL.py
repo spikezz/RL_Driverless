@@ -12,7 +12,7 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 #hidden layer
-H=130
+H=300
 #hidden layer
 
 
@@ -32,6 +32,7 @@ class PolicyGradient:
         self.prob3=[]
         self.prob4=[]
         self.prob5=[]
+        self.prob6=[]
         
         self.deterministic=False
         
@@ -128,6 +129,7 @@ class PolicyGradient:
         self.prob3.append(prob[0][3])
         self.prob4.append(prob[0][4])
         self.prob5.append(prob[0][5])
+        self.prob6.append(prob[0][5])
         #print("prob:",prob)
         #print("prob0:",self.prob0)
         return action
@@ -137,10 +139,10 @@ class PolicyGradient:
         self.a_set.append(a)
         self.r_set.append(r)
         #print("action:",self.a_set)
-        #print("reward:",self.r_set)
-    def learn(self):
+        
+    def learn(self,max_speed,acceleration):
 
-        discounted_r_set_norm= self._discount_norm_rewards()
+        discounted_r_set_norm= self._discount_norm_rewards(max_speed,acceleration)
         #discounted_r_set_norm=self.r_set
         self.sess.run(self.train,feed_dict={self.tf_obs:np.vstack(self.ob_set),self.tf_acts:np.array(self.a_set),self.tf_vt:discounted_r_set_norm,})
 
@@ -148,16 +150,21 @@ class PolicyGradient:
         
         return discounted_r_set_norm
     
-    def _discount_norm_rewards(self):
+    def _discount_norm_rewards(self,max_speed,acceleration):
         
         discounted_rs=np.zeros_like(self.r_set)
         running_add = 0
         
         for t in reversed(range(0,len(self.r_set))):
-            
-            running_add = running_add*self.reward_decay+ self.r_set[t]
-            discounted_rs[t]=running_add
-            
+            #print("t:",t)
+            if t>(max_speed/acceleration):
+                running_add = running_add*self.reward_decay+ self.r_set[t]
+                discounted_rs[t]=running_add
+                
+            else:
+                
+                discounted_rs[t]=running_add
+                
         SD=np.std(discounted_rs)
         MN=np.mean(discounted_rs)
         discounted_rs=(discounted_rs-MN)/SD
