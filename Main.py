@@ -93,6 +93,7 @@ cone_s.add(coney)
 path_s.add(startpoint)
 list_cone_blue.append(coneb)
 list_cone_yellow.append(coney)
+
 list_path_point.append(startpoint)
 ##add car
 
@@ -127,7 +128,7 @@ model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_le
 
 ##count/COUNT_FREQUENZ is the real time
 count=0 #every loop +1 for timer
-COUNT_FREQUENZ=30#FPS Frame(loop times) per second
+COUNT_FREQUENZ=500#FPS Frame(loop times) per second
 start_timer=False# switch for timer
 ##count/COUNT_FREQUENZ is the real time
 
@@ -178,6 +179,9 @@ dis_yellow=[]
 dis_blue=[]
 vektor_blue=[]
 vektor_yellow=[]
+dis_blue_sqr_sum=0
+dis_yellow_sqr_sum=0
+diff_sum_yb=0
 ##constant for cone
 
 ##constant for path
@@ -215,6 +219,8 @@ ep_total=0
 ep_use=0
 
 speed_faktor=1
+speed_faktor_enhance=1
+angle_faktor_enhance=1
 distance_faktor=0
 
 distance=0
@@ -235,7 +241,7 @@ Render=False
 
 input_max=60
 action_n=7
-rd= 0.5
+rd= 0.9
 
 lr =0.00001
 lr_use=1
@@ -295,6 +301,27 @@ path_man.append([path_man[corner[6]-2][0]+14,path_man[corner[6]-2][1]-48])
 
 #path_man.append([path_man[30][0]-48.29,path_man[30][1]-12.94])
 #path_man.append([path_man[31][0]-25*math.sqrt(3),path_man[31][1]-25])
+    
+coneb_back=traffic_cone.cone(CENTER[0]+200,CENTER[1]-20,-1,car.x,car.y)
+coney_back=traffic_cone.cone(CENTER[0]+200,CENTER[1]+20,1,car.x,car.y)
+
+cone_s.add(coneb_back)
+cone_s.add(coney_back)
+
+list_cone_blue.append(coneb_back)
+list_cone_yellow.append(coney_back)
+
+draw_yellow_cone.append([0,0])
+dis_yellow.append(0)
+vektor_yellow.append([0,0])
+p=p+1
+
+draw_blue_cone.append([0,0])
+dis_blue.append(0)
+vektor_blue.append([0,0])
+q=q+1
+
+    
 for pa in path_man:
     path_x=pa[0]
     path_y=pa[1]
@@ -559,22 +586,7 @@ while True:
                 if event.key == K_LEFT or event.key == K_RIGHT:
                     
                     angle=0
-    # =============================================================================
-    #             
-    #             if event.key == K_a : 
-    #                 
-    #                     i=i+1
-    #                     
-    #             if event.key == K_s : 
-    #                 
-    #                 if (i<(len(list_cone_yellow)) and i<(len(list_cone_blue))):
-    #                     
-    #                     show2=cal.calculate_r((list_cone_blue[i].x,list_cone_blue[i].y),(list_cone_yellow[i].x,list_cone_yellow[i].y))
-    #                     dis_yellow=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x,list_cone_yellow[i].y))
-    #                     dis_blue=cal.calculate_r((list_cone_blue[i].x,list_cone_blue[i].y),(car.x,car.y))
-    #                     
-    #                 
-    # =============================================================================
+
                     
             if event.type == MOUSEBUTTONDOWN and ctrl_pressed==False:
                 
@@ -622,7 +634,7 @@ while True:
             
             if action==0:
                 
-                angle=0
+                #angle=0
                 car.accelerate()
                 
 
@@ -1033,17 +1045,22 @@ while True:
             if dis_blue[i]<bound_lidar:
                 
                 vektor_blue_temp.append(vektor_blue[i])
+                dis_blue_sqr_sum=dis_blue_sqr_sum+pow(dis_blue[i],2)
                 
         for i in range (0, p+1):
             
             if dis_yellow[i]<bound_lidar:
                 
                 vektor_yellow_temp.append(vektor_yellow[i])
+                dis_yellow_sqr_sum=dis_yellow_sqr_sum+pow(dis_yellow[i],2)
+                
                 
         
         k=len(vektor_blue_temp)
         l=len(vektor_yellow_temp)
         if k>0 and l>0:
+            diff_sum_yb=math.sqrt(pow((math.sqrt(dis_blue_sqr_sum/k)-math.sqrt(dis_yellow_sqr_sum/l)),2))
+            #print("diff:",diff_sum_yb)
             state_sort=np.vstack((np.vstack(vektor_blue_temp),np.vstack(vektor_yellow_temp)))
             state_sort_temp=[]
             state_sort_end=[]
@@ -1065,7 +1082,7 @@ while True:
             state[3]=np.vstack(state[0]).ravel()
             state[1]=np.vstack(vektor_speed).ravel()
             state[2]=angle
-            state_input=np.hstack((state[1],state[2],state[3]))
+            state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))
             #print (state_input)
             #print ('size:',state_input.size)
             for t in range(len(state_input)):
@@ -1080,21 +1097,26 @@ while True:
         ##timer 
         #reward=distance_faktor*distance
         if start_action==True:
-
-            reward=car.speed*speed_faktor+distance_faktor*distance
+            if math.sqrt(diff_sum_yb)>0.2:
+                
+                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(diff_sum_yb))
+                
+            else:
             
-           
+                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/0.2)
+            #reward=car.speed*speed_faktor+distance_faktor*distance
             
             reward_sum=reward_sum+reward
 
             
-            if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>5:
+            if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 
+                reward=-pow(car.speed,3)
                 car.impact()
                 car.reset()
                 car.set_start_direction(90)
-        
-                reward=-reward_sum/50
+
+                #print("neg_reward:",reward)
                 reward_sum=reward_sum+reward
                 reward_show=reward_sum
                 #print("reward:",reward)
@@ -1102,6 +1124,8 @@ while True:
                 
                 print("FPS:",clock.get_fps())
                 reward_sum=0
+                dis_blue_sqr_sum=0
+                dis_yellow_sqr_sum=0
                 distance_set.append(distance)
                 distance=0
                 angle=0
@@ -1171,7 +1195,7 @@ while True:
         #if RL.learning_rate>0.001:
 
         print("lr_reset:",lr_reset)
-        #RL.learning_rate=lr/(1+0.1*ep_use)
+        #RL.learning_rate=0.3/(ep_use+3000)
         lr_set.append(RL.learning_rate)
         print("learning rate:",RL.learning_rate)
         print("max lr:",lr)
@@ -1179,7 +1203,7 @@ while True:
         #print("deterministic_count:",deterministic_count)
         #print("rr:",rr)
         vt=RL.learn(car.maxspeed,car.acceleration)
-
+        #print("RL.learn:",vt)
 
         plt.subplot(431)
         plt.plot(rr)  

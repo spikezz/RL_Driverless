@@ -12,7 +12,7 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 #hidden layer
-H=300
+H=130
 #hidden layer
 
 
