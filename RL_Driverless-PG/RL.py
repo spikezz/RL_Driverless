@@ -12,7 +12,7 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 #hidden layer
-H=130
+H=160
 #hidden layer
 
 
@@ -129,7 +129,7 @@ class PolicyGradient:
         self.prob3.append(prob[0][3])
         self.prob4.append(prob[0][4])
         self.prob5.append(prob[0][5])
-        self.prob6.append(prob[0][5])
+        self.prob6.append(prob[0][6])
         #print("prob:",prob)
         #print("prob0:",self.prob0)
         return action

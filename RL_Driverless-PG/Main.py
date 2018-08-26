@@ -50,7 +50,7 @@ CENTER=(CENTER_X,CENTER_Y)
 ##find the center of screen
 
 ##constant of path
-half_path_wide=70
+half_path_wide=80
 ##constant of path
 
 
@@ -62,8 +62,8 @@ cam = camera.Camera()
 # coneb=traffic_cone.cone(800,380,-1,car.x,car.y)
 # coney=traffic_cone.cone(800,510,1,car.x,car.y)
 # =============================================================================
-coneb=traffic_cone.cone(CENTER[0],CENTER[1]-70,-1,car.x,car.y)
-coney=traffic_cone.cone(CENTER[0],CENTER[1]+70,1,car.x,car.y)
+coneb=traffic_cone.cone(CENTER[0],CENTER[1]-half_path_wide,-1,car.x,car.y)
+coney=traffic_cone.cone(CENTER[0],CENTER[1]+half_path_wide,1,car.x,car.y)
 startpoint=path.path(CENTER[0],CENTER[1],car.x,car.y)
 ##create some objects
 
@@ -116,10 +116,6 @@ half_horizontal_axis_length=17
 radius_of_wheel=10
 el_length=500
 ##specification of the car
-
-##action relevant
-turing_speed=1.0
-##action relevant
 
 
 model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
@@ -221,8 +217,11 @@ ep_use=0
 speed_faktor=1
 speed_faktor_enhance=1
 angle_faktor_enhance=1
+SD_input=0
+MN_input=0
 distance_faktor=0
-
+safty_distance_impact=70
+safty_distance_turning=75
 distance=0
 distance_set=[]
 reward=1
@@ -239,7 +238,7 @@ vt=0
 start_action=False
 Render=False
 
-input_max=60
+input_max=70
 action_n=7
 rd= 0.9
 
@@ -279,6 +278,10 @@ corner.append(43)
 corner.append(44)
 corner.append(45)
 corner.append(46)
+corner.append(47)
+corner.append(48)
+corner.append(49)
+corner.append(54)
 for t in range (1,corner[0]):
     path_man.append([CENTER[0]-49*t,CENTER[1]-3*t])
 
@@ -294,7 +297,15 @@ for t in range (1,3):
 path_man.append([path_man[corner[3]-2][0]-40,path_man[corner[3]-2][1]-30])
 path_man.append([path_man[corner[4]-2][0]-31,path_man[corner[4]-2][1]-39.23])
 path_man.append([path_man[corner[5]-2][0]-19.6,path_man[corner[5]-2][1]-46])
-path_man.append([path_man[corner[6]-2][0]+14,path_man[corner[6]-2][1]-48])
+path_man.append([path_man[corner[6]-2][0]+15,path_man[corner[6]-2][1]-47.7])
+path_man.append([path_man[corner[7]-2][0]+30,path_man[corner[7]-2][1]-40])
+path_man.append([path_man[corner[8]-2][0]+35,path_man[corner[8]-2][1]-35.71])
+for t in range (1,6):
+    path_man.append([path_man[corner[9]-2][0]+43.5*t,path_man[corner[9]-2][1]-24.65*t])
+    
+for t in range (1,23):
+    path_man.append([path_man[corner[10]-2][0]+47.37*t,path_man[corner[10]-2][1]-16*t])
+    
 
 #for t in range (1,5):
     #path_man.append([path_man[8][0]-50*t,path_man[8][1]+10*math.sqrt(t)])
@@ -302,8 +313,8 @@ path_man.append([path_man[corner[6]-2][0]+14,path_man[corner[6]-2][1]-48])
 #path_man.append([path_man[30][0]-48.29,path_man[30][1]-12.94])
 #path_man.append([path_man[31][0]-25*math.sqrt(3),path_man[31][1]-25])
     
-coneb_back=traffic_cone.cone(CENTER[0]+200,CENTER[1]-20,-1,car.x,car.y)
-coney_back=traffic_cone.cone(CENTER[0]+200,CENTER[1]+20,1,car.x,car.y)
+coneb_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]-20,-1,car.x,car.y)
+coney_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]+20,1,car.x,car.y)
 
 cone_s.add(coneb_back)
 cone_s.add(coney_back)
@@ -416,21 +427,17 @@ while True:
             
         if keys[K_LEFT]:
             
-            turing_speed=1
-            
             if angle<0:
                 
                 angle=-1
                 
             if angle<46:
                 
-                angle=angle+turing_speed
+                angle=angle+car.steering
     
             #if angle==0:
                
         if keys[K_RIGHT]:
-            
-            turing_speed=-1
             
             if angle>0:
                 
@@ -438,7 +445,7 @@ while True:
             
             if angle>-46:
                 
-                angle=angle+turing_speed
+                angle=angle-car.steering
        
             #if angle==0:
                
@@ -638,9 +645,7 @@ while True:
                 car.accelerate()
                 
 
-            elif action==1:
-                 
-                turing_speed=1
+            elif action==1:    
                  
                 if angle<0:
                      
@@ -648,7 +653,7 @@ while True:
                      
                 if angle<46:
                      
-                    angle=angle+turing_speed
+                    angle=angle+car.steering
                     
                 if car.speed<=0:
                     
@@ -656,15 +661,13 @@ while True:
                     
             elif action==2:
                  
-                turing_speed=-1
-                 
                 if angle>0:
                      
                     angle=1
                  
                 if angle>-46:
                      
-                    angle=angle+turing_speed
+                    angle=angle-car.steering
                 
                 if car.speed<=0:
                     
@@ -672,21 +675,17 @@ while True:
                     
             elif action==3:
                 
-                turing_speed=1
-                
                 if angle<0:
                     
                     angle=-1
                     
                 if angle<46:
                     
-                    angle=angle+turing_speed
+                    angle=angle+car.steering
                     
                 car.accelerate()
                 
             elif action==4:
-                
-                turing_speed=-1
                 
                 if angle>0:
                     
@@ -694,17 +693,13 @@ while True:
                 
                 if angle>-46:
                     
-                    angle=angle+turing_speed
+                    angle=angle-car.steering
                     
                 car.accelerate()
             
             elif action==5:     
-                
 
-                    
                 car.deaccelerate()
-                    
-
 
             elif action==6:
                 
@@ -712,21 +707,17 @@ while True:
 # =============================================================================
 #             elif action==3:
 #                 
-#                 turing_speed=1
-#                 
 #                 if angle<0:
 #                     
 #                     angle=-1
 #                     
 #                 if angle<46:
 #                     
-#                     angle=angle+turing_speed
+#                     angle=angle+car.steering
 #                     
 #                 car.deaccelerate()
 #                 
 #             elif action==4:
-#                 
-#                 turing_speed=-1
 #                 
 #                 if angle>0:
 #                     
@@ -734,7 +725,7 @@ while True:
 #                 
 #                 if angle>-46:
 #                     
-#                     angle=angle+turing_speed
+#                     angle=angle-car.steering
 #                 car.deaccelerate()
 #                 
 #             elif action==5:
@@ -743,6 +734,76 @@ while True:
 # =============================================================================
         ##reward
         
+                ##
+        for i in range (0, p+1):
+            
+            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
+            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
+        
+        for i in range (0, q+1):
+            
+            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
+            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
+    
+        for i in range (0, j+1):
+            
+            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
+            
+        if start_action==True:
+            
+            if Render==True:
+                
+                for i in range (0, q+1):
+                
+                    if dis_blue[i]<safty_distance_turning:
+                        
+                        if dis_blue[i]<safty_distance_impact:
+                            angle=45
+                            #car.deaccelerate()
+                            action=1
+                            break
+                      
+                        if angle<0:
+                             
+                            angle=-1
+                             
+                        if angle<46:
+                             
+                            angle=angle+car.steering
+                            
+                        if car.speed<=0:
+                            
+                            car.accelerate()
+                    
+                        action=1
+                        break
+                
+                for i in range (0, p+1):
+                
+                    if dis_yellow[i]<safty_distance_turning:
+                        
+                        if dis_yellow[i]<safty_distance_impact:
+                            angle=-45
+                            #car.deaccelerate()
+                            action=2
+                            break
+                         
+                        if angle>0:
+                             
+                            angle=1
+                         
+                        if angle>-46:
+                             
+                            angle=angle-car.steering
+                        
+                        if car.speed<=0:
+                            
+                            car.accelerate()
+                            
+                        #car.deaccelerate()
+                        action=2
+                        break
+                
         distance=distance+car.speed
         #reward=speed_faktor*car.speed
             
@@ -759,22 +820,7 @@ while True:
         x_old=car.x
         y_old=car.y
         
-        ##
-        for i in range (0, p+1):
-            
-            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
-            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
-        
-        for i in range (0, q+1):
-            
-            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
-            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
-    
-        for i in range (0, j+1):
-            
-            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
-            
-            
+
         #postion_sensor=[(model[7][0][0]-CENTER[0]+car.x),(model[7][0][1]-CENTER[1]+car.y)]
         ##
            
@@ -1024,10 +1070,10 @@ while True:
             screen.blit(text_dir, textpos_dir)
             screen.blit(text_speed, textpos_speed)
             screen.blit(text_colour, textpos_colour)
-            #screen.blit(text_dis_yellow, textpos_dis_yellow)
-            #screen.blit(text_dis_blue, textpos_dis_blue)
-            #screen.blit(text_yellow, textpos_yellow)
-            #screen.blit(text_blue, textpos_blue)
+            screen.blit(text_dis_yellow, textpos_dis_yellow)
+            screen.blit(text_dis_blue, textpos_dis_blue)
+            screen.blit(text_yellow, textpos_yellow)
+            screen.blit(text_blue, textpos_blue)
             screen.blit(text_speed_v, textpos_speed_v)
             screen.blit(text_show1, textpos_show1)
             screen.blit(text_show2, textpos_show2)
@@ -1054,7 +1100,7 @@ while True:
                 vektor_yellow_temp.append(vektor_yellow[i])
                 dis_yellow_sqr_sum=dis_yellow_sqr_sum+pow(dis_yellow[i],2)
                 
-                
+
         
         k=len(vektor_blue_temp)
         l=len(vektor_yellow_temp)
@@ -1085,6 +1131,9 @@ while True:
             state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))
             #print (state_input)
             #print ('size:',state_input.size)
+            SD_input=np.std(state_input)
+            MN_input=np.mean(state_input)
+            state_input=(state_input-MN_input)/SD_input
             for t in range(len(state_input)):
                 observation[t]=state_input[t]
     
@@ -1097,6 +1146,7 @@ while True:
         ##timer 
         #reward=distance_faktor*distance
         if start_action==True:
+            
             if math.sqrt(diff_sum_yb)>0.2:
                 
                 reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(diff_sum_yb))
@@ -1109,7 +1159,8 @@ while True:
             reward_sum=reward_sum+reward
 
             
-            if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
+            #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>1.8 :
+            if pygame.sprite.spritecollide(car, cone_s, False) : 
                 
                 reward=-pow(car.speed,3)
                 car.impact()
@@ -1131,7 +1182,27 @@ while True:
                 angle=0
                 count=0
                 episode=episode+1
-    
+                
+            elif count/COUNT_FREQUENZ>4 :
+                
+                car.reset()
+                car.set_start_direction(90)
+                 #print("neg_reward:",reward)
+                reward_sum=reward_sum+reward
+                reward_show=reward_sum
+                #print("reward:",reward)
+                #print("episode:",episode)
+                
+                print("FPS:",clock.get_fps())
+                reward_sum=0
+                dis_blue_sqr_sum=0
+                dis_yellow_sqr_sum=0
+                distance_set.append(distance)
+                distance=0
+                angle=0
+                count=0
+                episode=episode+1
+                
             RL.store_transition(observation, action, reward)
 
         #print(episode)
@@ -1202,7 +1273,13 @@ while True:
         print("deterministic:",RL.deterministic)
         #print("deterministic_count:",deterministic_count)
         #print("rr:",rr)
-        vt=RL.learn(car.maxspeed,car.acceleration)
+        if Render==False:
+            
+            vt=RL.learn(car.maxspeed,car.acceleration)
+            
+        else:
+            
+            RL.ob_set,RL.a_set,RL.r_set=[],[],[]  
         #print("RL.learn:",vt)
 
         plt.subplot(431)
