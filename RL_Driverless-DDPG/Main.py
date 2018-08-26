@@ -29,18 +29,18 @@ rd = 0.9  # reward discount
 REPLACE_ITER_A = 1100
 REPLACE_ITER_C = 1000
 MEMORY_CAPACITY = 500
-BATCH_SIZE = 100
+BATCH_SIZE = 30
 VAR_MIN = 0.1
-RENDER = True
 LOAD = True
 MODE = ['online', 'cycle']
 n_model = 1
 H1=130
 H2=10
 input_max = 60
+half_Max_angle=45
 ACTION_DIM = 2
-ACTION_BOUND = np.array([2,90])
-var = 5.0
+ACTION_BOUND = np.array([1,6])
+var = 2.0
 
 # all placeholder for tf
 with tf.name_scope('S'):
@@ -394,7 +394,8 @@ speed_faktor=1
 speed_faktor_enhance=1
 angle_faktor_enhance=1
 distance_faktor=0
-
+safty_distance_impact=55
+safty_distance_turning=75
 distance=0
 distance_set=[]
 reward=1
@@ -555,7 +556,7 @@ while True:
     
         if keys[K_1]:
     
-            angle=45
+            angle=half_Max_angle
             
         if keys[K_2]:
       
@@ -591,7 +592,7 @@ while True:
             
         if keys[K_0]:
           
-            angle=-45
+            angle=-half_Max_angle
             
         if keys[K_LEFT]:
             
@@ -601,7 +602,7 @@ while True:
                 
                 angle=-1
                 
-            if angle<46:
+            if angle<half_Max_angle+1:
                 
                 angle=angle+turing_speed
     
@@ -615,7 +616,7 @@ while True:
                 
                 angle=1
             
-            if angle>-46:
+            if angle>-half_Max_angle-1:
                 
                 angle=angle+turing_speed
        
@@ -623,7 +624,7 @@ while True:
                
         if keys[K_UP]:
             
-            car.accelerate()
+            car.accelerate(car.acceleration)
             
     
             
@@ -810,14 +811,77 @@ while True:
             #print("action:",action)
             action = actor.choose_action(observation)
             action = np.clip(np.random.normal(action, var), *ACTION_BOUND)
-            action[0]=action[0]-0.5
-            action[1]=action[1]-45
+            action[0]=action[0]+0.5
+            action[1]=action[1]-3.5
+            print("action:",action)
             actor.angle.append(action[1])
             actor.accelerate.append(action[0])
             #action = np.clip(np.random.normal(action, var), *ACTION_BOUND)
             #print("action:",action)
             car.accelerate(action[0])
-            angle=action[1]
+            
+            if angle<half_Max_angle and angle>-half_Max_angle:
+                
+                angle=angle+action[1]
+                
+        for i in range (0, p+1):
+            
+            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
+            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
+        
+        for i in range (0, q+1):
+            
+            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
+            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
+    
+        for i in range (0, j+1):
+            
+            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
+            
+        if start_action==True:
+            
+            #if Render==True:
+                
+            for i in range (0, q+1):
+            
+                if dis_blue[i]<safty_distance_turning:
+                    
+                    if dis_blue[i]<safty_distance_impact:
+                        angle=half_Max_angle
+                        #car.deaccelerate()
+                        
+                        break
+                    elif angle>half_Max_angle-var:
+                        
+                        angle=0
+                        
+                    action[1]=3
+                    if angle<half_Max_angle and angle>-half_Max_angle:
+            
+                        angle=angle+action[1]
+                        
+                    break
+                
+            for i in range (0, p+1):
+            
+                if dis_yellow[i]<safty_distance_turning:
+                    
+                    if dis_yellow[i]<safty_distance_impact:
+                        angle=-half_Max_angle
+                        #car.deaccelerate()
+                        
+                        break
+                    elif angle<-half_Max_angle+var:
+                        
+                        angle=0
+                        
+                    action[1]=-3   
+                    if angle<half_Max_angle and angle>-half_Max_angle:
+            
+                        angle=angle+action[1]
+                        
+                    break
+                    
             
 # =============================================================================
 #             if action[1]> angle+var:
@@ -830,117 +894,7 @@ while True:
 # =============================================================================
             #print("angle:",angle)
             #print("action[1]:",action[1])
-# =============================================================================
-#             if action==0:
-#                 
-#                 #angle=0
-#                 car.accelerate()
-#                 
-# 
-#             elif action==1:
-#                  
-#                 turing_speed=1
-#                  
-#                 if angle<0:
-#                      
-#                     angle=-1
-#                      
-#                 if angle<46:
-#                      
-#                     angle=angle+turing_speed
-#                     
-#                 if car.speed<=0:
-#                     
-#                     car.accelerate()
-#                     
-#             elif action==2:
-#                  
-#                 turing_speed=-1
-#                  
-#                 if angle>0:
-#                      
-#                     angle=1
-#                  
-#                 if angle>-46:
-#                      
-#                     angle=angle+turing_speed
-#                 
-#                 if car.speed<=0:
-#                     
-#                     car.accelerate()
-#                     
-#             elif action==3:
-#                 
-#                 turing_speed=1
-#                 
-#                 if angle<0:
-#                     
-#                     angle=-1
-#                     
-#                 if angle<46:
-#                     
-#                     angle=angle+turing_speed
-#                     
-#                 car.accelerate()
-#                 
-#             elif action==4:
-#                 
-#                 turing_speed=-1
-#                 
-#                 if angle>0:
-#                     
-#                     angle=1
-#                 
-#                 if angle>-46:
-#                     
-#                     angle=angle+turing_speed
-#                     
-#                 car.accelerate()
-#             
-#             elif action==5:     
-#                 
-# 
-#                     
-#                 car.deaccelerate()
-#                     
-# 
-# 
-#             elif action==6:
-#                 
-#                 pass
-# =============================================================================
-# =============================================================================
-#             elif action==3:
-#                 
-#                 turing_speed=1
-#                 
-#                 if angle<0:
-#                     
-#                     angle=-1
-#                     
-#                 if angle<46:
-#                     
-#                     angle=angle+turing_speed
-#                     
-#                 car.deaccelerate()
-#                 
-#             elif action==4:
-#                 
-#                 turing_speed=-1
-#                 
-#                 if angle>0:
-#                     
-#                     angle=1
-#                 
-#                 if angle>-46:
-#                     
-#                     angle=angle+turing_speed
-#                 car.deaccelerate()
-#                 
-#             elif action==5:
-#                 angle=0
-#                 car.deaccelerate()
-# =============================================================================
+
         ##reward
         
         distance=distance+car.speed
@@ -960,20 +914,7 @@ while True:
         y_old=car.y
         
         ##
-        for i in range (0, p+1):
-            
-            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
-            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
         
-        for i in range (0, q+1):
-            
-            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
-            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
-    
-        for i in range (0, j+1):
-            
-            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
-            
             
         #postion_sensor=[(model[7][0][0]-CENTER[0]+car.x),(model[7][0][1]-CENTER[1]+car.y)]
         ##
@@ -1336,7 +1277,7 @@ while True:
             M.store_transition(observation_old, action, reward, observation)
             #print("MEMORY_CAPACITY:",M.pointer)
             if M.pointer > MEMORY_CAPACITY:
-                var = max([var*0.99999999999, VAR_MIN])    # decay the action randomness
+                var = max([var*0.9999, VAR_MIN])    # decay the action randomness
                 b_M = M.sample(BATCH_SIZE)
                 b_s = b_M[:, :input_max]
                 b_a = b_M[:, input_max: input_max + ACTION_DIM]
