@@ -4,6 +4,9 @@ Created on Tue May  1 11:14:08 2018
 
 @author: Asgard
 """
+import tensorflow as tf
+import os
+import shutil
 import sys, pygame, math
 import player,maps,tracks,camera,traffic_cone , path
 import canvas as cv
@@ -15,6 +18,11 @@ from pygame.locals import *
 from loader import load_image
 from operator import itemgetter, attrgetter
 from RL import PolicyGradient
+
+
+LOAD = True
+MODE = ['online', 'cycle']
+n_model = 0
 
 
 
@@ -160,7 +168,7 @@ for x in range (0,7):
         map_s.add(maps.Map(maps.map_1[x][y], x * FULL_TILE, y * FULL_TILE))
         
 ##read the maps and draw
-       
+collide=False
         
 ##constant for cone
 #cone_x=CENTER[0]
@@ -222,6 +230,7 @@ MN_input=0
 distance_faktor=0
 safty_distance_impact=70
 safty_distance_turning=75
+collision_distance=40
 distance=0
 distance_set=[]
 reward=1
@@ -371,7 +380,14 @@ for pa in path_man:
     j=j+1
 # =============================================================================
 ##
-
+    
+saver = tf.train.Saver()
+path = './'+MODE[n_model]
+###main loop process
+if LOAD:
+    saver.restore(RL.sess, tf.train.latest_checkpoint(path))
+else:
+    sess.run(tf.global_variables_initializer())
 
 ###main loop process
         
@@ -632,7 +648,143 @@ while True:
     #         list_cone_yellow=[]
     # =============================================================================
         ##key event 
+        
+# =============================================================================
+#             elif action==3:
+#                 
+#                 if angle<0:
+#                     
+#                     angle=-1
+#                     
+#                 if angle<46:
+#                     
+#                     angle=angle+car.steering
+#                     
+#                 car.deaccelerate()
+#                 
+#             elif action==4:
+#                 
+#                 if angle>0:
+#                     
+#                     angle=1
+#                 
+#                 if angle>-46:
+#                     
+#                     angle=angle-car.steering
+#                 car.deaccelerate()
+#                 
+#             elif action==5:
+#                 angle=0
+#                 car.deaccelerate()
+# =============================================================================
+        ##reward
+        
+                ##
+        
+                
+        distance=distance+car.speed
+        #reward=speed_faktor*car.speed
+            
+        car.soften()
+        #camera position reset
+        cam.set_pos(car.x, car.y)
+        
+        
+        #speed calculation for center of the car
+        speed=math.sqrt(pow(car.x-x_old,2)+pow(car.y-y_old,2))/(1/COUNT_FREQUENZ)#pixel/s
+        
+    
+        #update the old position
+        x_old=car.x
+        y_old=car.y
+        
+
+        #postion_sensor=[(model[7][0][0]-CENTER[0]+car.x),(model[7][0][1]-CENTER[1]+car.y)]
+        ##
+           
+        ##text setting
+        
+        text_fps = font.render('FPS: ' + str(int(clock.get_fps())), 1, (0, 0, 102))
+        textpos_fps = text_fps.get_rect(centery=25, left=20)
+        
+        #print("FPS:",clock.get_fps())
+        
+        text_timer = font.render('Timer: ' + str(round(float(count/COUNT_FREQUENZ),2)) +'s', 1, (0, 0, 102))
+        textpos_timer = text_timer.get_rect(centery=65, left=20)
+         
+        text_loop = font.render('Loop: ' + str(int(clock.get_time())) +'ms', 1, (0, 0, 102))
+        textpos_loop = text_loop.get_rect(centery=105, left=20)
+        
+        text_pos= font.render('POS: ' + '( '+str(round(float(car.x-xc0),2))+' , '+str(round(float(car.y-yc0),2))+' )', 1, (0, 0, 102))   
+        textpos_pos = text_pos.get_rect(centery=145, left=20)
+        
+        text_posr= font.render('POS_RAW: ' +  '( '+str(round(float(car.x),2))+' , '+str(round(float(car.y),2))+' )', 1, (0, 0, 102))   
+        textpos_posr = text_posr.get_rect(centery=185, left=20)
+        
+        text_dir= font.render('Direction: ' + str(round(float(car.dir),2)), 1, (0, 0, 102))   
+        textpos_dir = text_dir.get_rect(centery=225, left=20)
+        
+        text_speed= font.render('speed: ' + str(round(float(speed),2))+'pixel/s'+'|'+str(round(float(car.speed),2))+'pixel/loop', 1, (0, 0, 102))   
+        textpos_speed = text_speed.get_rect(centery=265, left=20)
+        
+        text_colour= font.render('colour: ' + str(round(screen.get_at(((int(CENTER[0]-50), int(CENTER[1]-50)))).g,2)), 1, (0, 0, 102))   
+        textpos_colour = text_colour.get_rect(centery=305, left=20)
+        
+        #text_dis_yellow= font.render('distance to yellow cone: ' + str(round(float(dis_yellow[0]),2)), 1, (0, 0, 102))   
+        #textpos_dis_yellow = text_dis_yellow.get_rect(centery=345, left=20)
+        
+        #text_dis_blue= font.render('distance to blue cone: ' + str(round(float(dis_blue[0]),2)), 1, (0, 0, 102))   
+        #textpos_dis_blue =text_dis_blue.get_rect(centery=385, left=20)
+        
+        
+        
+        
+        ##text setting
+        
+        
+        #model of car
+        #35*41 rect
+        #middle axis 40
+        #axis 35
+        #wheel 20
+        
+        #angle signal give to the object car
+        car.wheelangle=angle
+        model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
+    
+        
+        if angle>0 :
+        
+            car.rrl=model[19]
+            car.steerleft(angle)
+            #vektor_speed=[car.speed*,car.speed*]
+           
+        elif angle<0  :
+    
+            car.rrr=model[21]
+            car.steerright(angle)
+        
+    
+        model=cv.rotate(model,CENTER,car.dir)
+        
+        for i in range (0, p+1):
+            
+            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-model[7][0][0],list_cone_yellow[i].y-model[7][0][1]))
+            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
+        
+        for i in range (0, q+1):
+            
+            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-model[7][0][0],list_cone_blue[i].y-model[7][0][1]),(car.x,car.y))
+            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
+    
+        for i in range (0, j+1):
+            
+            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
+            
         if start_action==True:
+            
+        #if Render==True:
+           
             
             start_timer=True
             #print("observation:",observation)
@@ -704,192 +856,58 @@ while True:
             elif action==6:
                 
                 pass
-# =============================================================================
-#             elif action==3:
-#                 
-#                 if angle<0:
-#                     
-#                     angle=-1
-#                     
-#                 if angle<46:
-#                     
-#                     angle=angle+car.steering
-#                     
-#                 car.deaccelerate()
-#                 
-#             elif action==4:
-#                 
-#                 if angle>0:
-#                     
-#                     angle=1
-#                 
-#                 if angle>-46:
-#                     
-#                     angle=angle-car.steering
-#                 car.deaccelerate()
-#                 
-#             elif action==5:
-#                 angle=0
-#                 car.deaccelerate()
-# =============================================================================
-        ##reward
-        
-                ##
-        for i in range (0, p+1):
             
-            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
-            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
-        
-        for i in range (0, q+1):
+            for i in range (0, q+1):
             
-            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
-            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
-    
-        for i in range (0, j+1):
-            
-            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
-            
-        if start_action==True:
-            
-            if Render==True:
-                
-                for i in range (0, q+1):
-                
-                    if dis_blue[i]<safty_distance_turning:
-                        
-                        if dis_blue[i]<safty_distance_impact:
-                            angle=45
-                            #car.deaccelerate()
-                            action=1
-                            break
-                      
-                        if angle<0:
-                             
-                            angle=-1
-                             
-                        if angle<46:
-                             
-                            angle=angle+car.steering
-                            
-                        if car.speed<=0:
-                            
-                            car.accelerate()
+                if dis_blue[i]<safty_distance_turning:
                     
+                    if dis_blue[i]<safty_distance_impact:
+                        angle=45
+                        #car.deaccelerate()
                         action=1
                         break
-                
-                for i in range (0, p+1):
-                
-                    if dis_yellow[i]<safty_distance_turning:
-                        
-                        if dis_yellow[i]<safty_distance_impact:
-                            angle=-45
-                            #car.deaccelerate()
-                            action=2
-                            break
+                  
+                    if angle<0:
                          
-                        if angle>0:
-                             
-                            angle=1
+                        angle=-1
                          
-                        if angle>-46:
-                             
-                            angle=angle-car.steering
+                    if angle<46:
+                         
+                        angle=angle+car.steering
                         
-                        if car.speed<=0:
-                            
-                            car.accelerate()
-                            
+                    if car.speed<=0:
+                        
+                        car.accelerate()
+                
+                    action=1
+                    break
+            
+            for i in range (0, p+1):
+            
+                if dis_yellow[i]<safty_distance_turning:
+                    
+                    if dis_yellow[i]<safty_distance_impact:
+                        angle=-45
                         #car.deaccelerate()
                         action=2
                         break
-                
-        distance=distance+car.speed
-        #reward=speed_faktor*car.speed
-            
-        car.soften()
-        #camera position reset
-        cam.set_pos(car.x, car.y)
-        
-        
-        #speed calculation for center of the car
-        speed=math.sqrt(pow(car.x-x_old,2)+pow(car.y-y_old,2))/(1/COUNT_FREQUENZ)#pixel/s
-        
-    
-        #update the old position
-        x_old=car.x
-        y_old=car.y
-        
+                     
+                    if angle>0:
+                         
+                        angle=1
+                     
+                    if angle>-46:
+                         
+                        angle=angle-car.steering
+                    
+                    if car.speed<=0:
+                        
+                        car.accelerate()
+                        
+                    #car.deaccelerate()
+                    action=2
+                    break
 
-        #postion_sensor=[(model[7][0][0]-CENTER[0]+car.x),(model[7][0][1]-CENTER[1]+car.y)]
-        ##
-           
-        ##text setting
-        
-        text_fps = font.render('FPS: ' + str(int(clock.get_fps())), 1, (0, 0, 102))
-        textpos_fps = text_fps.get_rect(centery=25, left=20)
-        
-        #print("FPS:",clock.get_fps())
-        
-        text_timer = font.render('Timer: ' + str(round(float(count/COUNT_FREQUENZ),2)) +'s', 1, (0, 0, 102))
-        textpos_timer = text_timer.get_rect(centery=65, left=20)
-         
-        text_loop = font.render('Loop: ' + str(int(clock.get_time())) +'ms', 1, (0, 0, 102))
-        textpos_loop = text_loop.get_rect(centery=105, left=20)
-        
-        text_pos= font.render('POS: ' + '( '+str(round(float(car.x-xc0),2))+' , '+str(round(float(car.y-yc0),2))+' )', 1, (0, 0, 102))   
-        textpos_pos = text_pos.get_rect(centery=145, left=20)
-        
-        text_posr= font.render('POS_RAW: ' +  '( '+str(round(float(car.x),2))+' , '+str(round(float(car.y),2))+' )', 1, (0, 0, 102))   
-        textpos_posr = text_posr.get_rect(centery=185, left=20)
-        
-        text_dir= font.render('Direction: ' + str(round(float(car.dir),2)), 1, (0, 0, 102))   
-        textpos_dir = text_dir.get_rect(centery=225, left=20)
-        
-        text_speed= font.render('speed: ' + str(round(float(speed),2))+'pixel/s'+'|'+str(round(float(car.speed),2))+'pixel/loop', 1, (0, 0, 102))   
-        textpos_speed = text_speed.get_rect(centery=265, left=20)
-        
-        text_colour= font.render('colour: ' + str(round(screen.get_at(((int(CENTER[0]-50), int(CENTER[1]-50)))).g,2)), 1, (0, 0, 102))   
-        textpos_colour = text_colour.get_rect(centery=305, left=20)
-        
-        text_dis_yellow= font.render('distance to yellow cone: ' + str(round(float(dis_yellow[0]),2)), 1, (0, 0, 102))   
-        textpos_dis_yellow = text_dis_yellow.get_rect(centery=345, left=20)
-        
-        text_dis_blue= font.render('distance to blue cone: ' + str(round(float(dis_blue[0]),2)), 1, (0, 0, 102))   
-        textpos_dis_blue =text_dis_blue.get_rect(centery=385, left=20)
-        
-        
-        
-        
-        ##text setting
-        
-        
-        #model of car
-        #35*41 rect
-        #middle axis 40
-        #axis 35
-        #wheel 20
-        
-        #angle signal give to the object car
-        car.wheelangle=angle
-        model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
-    
-        
-        if angle>0 :
-        
-            car.rrl=model[19]
-            car.steerleft(angle)
-            #vektor_speed=[car.speed*,car.speed*]
-           
-        elif angle<0  :
-    
-            car.rrr=model[21]
-            car.steerright(angle)
-        
-    
-        model=cv.rotate(model,CENTER,car.dir)
-        
-    
         ##start drawing
         
         
@@ -1070,8 +1088,8 @@ while True:
             screen.blit(text_dir, textpos_dir)
             screen.blit(text_speed, textpos_speed)
             screen.blit(text_colour, textpos_colour)
-            screen.blit(text_dis_yellow, textpos_dis_yellow)
-            screen.blit(text_dis_blue, textpos_dis_blue)
+            #screen.blit(text_dis_yellow, textpos_dis_yellow)
+            #screen.blit(text_dis_blue, textpos_dis_blue)
             screen.blit(text_yellow, textpos_yellow)
             screen.blit(text_blue, textpos_blue)
             screen.blit(text_speed_v, textpos_speed_v)
@@ -1160,7 +1178,18 @@ while True:
 
             
             #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>1.8 :
-            if pygame.sprite.spritecollide(car, cone_s, False) : 
+            for i in range (0, q+1):
+            
+                if dis_blue[i]<collision_distance:
+                    collide=True
+                    
+            for i in range (0, p+1):
+            
+                if dis_yellow[i]<collision_distance:
+                    collide=True
+                    
+            if collide==True or count/COUNT_FREQUENZ>1: 
+            #if pygame.sprite.spritecollide(car, cone_s, False) : 
                 
                 reward=-pow(car.speed,3)
                 car.impact()
@@ -1367,5 +1396,10 @@ while True:
         ep_use=ep_use+1
         print("lr ep :",ep_use)
         episode=0
-
+        
+        if os.path.isdir(path): shutil.rmtree(path)
+        os.mkdir(path)
+        ckpt_path = os.path.join('./'+MODE[n_model], 'PG.ckpt')
+        save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
+        print("\nSave Model %s\n" % save_path)
 ###main loop process

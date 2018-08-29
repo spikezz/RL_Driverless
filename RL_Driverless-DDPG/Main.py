@@ -23,25 +23,30 @@ tf.set_random_seed(1)
 
 MAX_EPISODES = 40
 MAX_EP_STEPS = 200
-LR_A = 1e-4  # learning rate for actor
-LR_C = 1e-4  # learning rate for critic
+LR_A = 1e-6  # learning rate for actor
+LR_C = 1e-6  # learning rate for critic
 rd = 0.9  # reward discount
 REPLACE_ITER_A = 1100
 REPLACE_ITER_C = 1000
 MEMORY_CAPACITY = 500
-BATCH_SIZE = 30
+BATCH_SIZE = 50
 VAR_MIN = 0.1
+#LOAD = False
 LOAD = True
 MODE = ['online', 'cycle']
-n_model = 1
-H1=130
+n_model = 0
+H1=150
 H2=10
-input_max = 60
+input_max = 70
 half_Max_angle=45
 ACTION_DIM = 2
-ACTION_BOUND = np.array([1,6])
-var = 2.0
-
+ACTION_BOUND0 = np.array([-0.1,0.5])
+ACTION_BOUND1 = np.array([-45,45])
+ACTION_BOUND=np.array([1,3])
+#var1 = 0.5
+#var2 = 1
+var1 = 0.1
+var2 = 0.1
 # all placeholder for tf
 with tf.name_scope('S'):
     S = tf.placeholder(tf.float32, shape=[None, input_max], name='s')
@@ -83,9 +88,9 @@ class Actor(object):
             
             layer1 = tf.layers.dense(s, H1, activation=tf.nn.relu6,kernel_initializer=init_w, bias_initializer=init_b, name='l1',trainable=trainable)
             layer2 = tf.layers.dense(layer1, H1, activation=tf.nn.relu6,kernel_initializer=init_w, bias_initializer=init_b, name='l2',trainable=trainable)
-            layer3 = tf.layers.dense(layer2, H2, activation=tf.nn.relu,kernel_initializer=init_w, bias_initializer=init_b, name='l3',trainable=trainable)
+            #layer3 = tf.layers.dense(layer2, H2, activation=tf.nn.relu6,kernel_initializer=init_w, bias_initializer=init_b, name='l3',trainable=trainable)
             with tf.variable_scope('a'):
-                actions = tf.layers.dense(layer3, self.a_dim, activation=tf.nn.tanh, kernel_initializer=init_w,
+                actions = tf.layers.dense(layer2, self.a_dim, activation=tf.nn.tanh, kernel_initializer=init_w,
                                           name='a', trainable=trainable)
                 scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
         return scaled_a
@@ -105,7 +110,7 @@ class Actor(object):
             self.policy_grads = tf.gradients(ys=self.a, xs=self.e_params, grad_ys=a_grads)
 
         with tf.variable_scope('A_train'):
-            opt = tf.train.RMSPropOptimizer(-self.lr)  # (- learning rate) for ascent policy
+            opt = tf.train.AdamOptimizer(-self.lr)  # (- learning rate) for ascent policy
             self.train_op = opt.apply_gradients(zip(self.policy_grads, self.e_params))
 
 
@@ -137,7 +142,7 @@ class Critic(object):
             self.loss = tf.reduce_mean(tf.squared_difference(self.target_q, self.q))
 
         with tf.variable_scope('C_train'):
-            self.train_op = tf.train.RMSPropOptimizer(self.lr).minimize(self.loss)
+            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
 
         with tf.variable_scope('a_grad'):
             self.a_grads = tf.gradients(self.q, a)[0]   # tensor of gradients of each sample (None, a_dim)
@@ -157,11 +162,11 @@ class Critic(object):
             layer1 = tf.layers.dense(net, H1, activation=tf.nn.relu6,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l2',
                                   trainable=trainable)
-            layer2 = tf.layers.dense(layer1, H2, activation=tf.nn.relu,
+            layer2 = tf.layers.dense(layer1, H2, activation=tf.nn.tanh,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l3',
                                   trainable=trainable)
             with tf.variable_scope('q'):
-                q = tf.layers.dense(layer2, 1, kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
+                q = tf.layers.dense(layer2,1,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
         return q
 
     def learn(self, s, a, r, s_):
@@ -221,7 +226,7 @@ CENTER=(CENTER_X,CENTER_Y)
 ##find the center of screen
 
 ##constant of path
-half_path_wide=70
+half_path_wide=80
 ##constant of path
 
 
@@ -233,8 +238,8 @@ cam = camera.Camera()
 # coneb=traffic_cone.cone(800,380,-1,car.x,car.y)
 # coney=traffic_cone.cone(800,510,1,car.x,car.y)
 # =============================================================================
-coneb=traffic_cone.cone(CENTER[0],CENTER[1]-70,-1,car.x,car.y)
-coney=traffic_cone.cone(CENTER[0],CENTER[1]+70,1,car.x,car.y)
+coneb=traffic_cone.cone(CENTER[0],CENTER[1]-half_path_wide,-1,car.x,car.y)
+coney=traffic_cone.cone(CENTER[0],CENTER[1]+half_path_wide,1,car.x,car.y)
 startpoint=path.path(CENTER[0],CENTER[1],car.x,car.y)
 ##create some objects
 
@@ -272,6 +277,7 @@ list_path_point.append(startpoint)
 ##start angle from car
 car.set_start_direction(90)
 angle=0#the turning angle of the wheel 
+angle_old=0
 ##start angle from car
 
 
@@ -336,7 +342,7 @@ for x in range (0,7):
         
 ##read the maps and draw
        
-        
+collide=False
 ##constant for cone
 #cone_x=CENTER[0]
 #cone_y=CENTER[1]
@@ -394,8 +400,9 @@ speed_faktor=1
 speed_faktor_enhance=1
 angle_faktor_enhance=1
 distance_faktor=0
-safty_distance_impact=55
+safty_distance_impact=65
 safty_distance_turning=75
+collision_distance=40
 distance=0
 distance_set=[]
 reward=1
@@ -410,7 +417,8 @@ reward_mean_max_rate=[]
 vt=0
 
 start_action=False
-Render=False
+Render=True
+
 
 
 
@@ -436,7 +444,6 @@ action = 0
 
 ##
 
-
 path_man=[]
 corner=[]
 corner.append(32)
@@ -446,6 +453,10 @@ corner.append(43)
 corner.append(44)
 corner.append(45)
 corner.append(46)
+corner.append(47)
+corner.append(48)
+corner.append(49)
+corner.append(54)
 for t in range (1,corner[0]):
     path_man.append([CENTER[0]-49*t,CENTER[1]-3*t])
 
@@ -461,7 +472,15 @@ for t in range (1,3):
 path_man.append([path_man[corner[3]-2][0]-40,path_man[corner[3]-2][1]-30])
 path_man.append([path_man[corner[4]-2][0]-31,path_man[corner[4]-2][1]-39.23])
 path_man.append([path_man[corner[5]-2][0]-19.6,path_man[corner[5]-2][1]-46])
-path_man.append([path_man[corner[6]-2][0]+14,path_man[corner[6]-2][1]-48])
+path_man.append([path_man[corner[6]-2][0]+15,path_man[corner[6]-2][1]-47.7])
+path_man.append([path_man[corner[7]-2][0]+30,path_man[corner[7]-2][1]-40])
+path_man.append([path_man[corner[8]-2][0]+35,path_man[corner[8]-2][1]-35.71])
+for t in range (1,6):
+    path_man.append([path_man[corner[9]-2][0]+43.5*t,path_man[corner[9]-2][1]-24.65*t])
+    
+for t in range (1,23):
+    path_man.append([path_man[corner[10]-2][0]+47.37*t,path_man[corner[10]-2][1]-16*t])
+    
 
 #for t in range (1,5):
     #path_man.append([path_man[8][0]-50*t,path_man[8][1]+10*math.sqrt(t)])
@@ -469,8 +488,8 @@ path_man.append([path_man[corner[6]-2][0]+14,path_man[corner[6]-2][1]-48])
 #path_man.append([path_man[30][0]-48.29,path_man[30][1]-12.94])
 #path_man.append([path_man[31][0]-25*math.sqrt(3),path_man[31][1]-25])
     
-coneb_back=traffic_cone.cone(CENTER[0]+200,CENTER[1]-20,-1,car.x,car.y)
-coney_back=traffic_cone.cone(CENTER[0]+200,CENTER[1]+20,1,car.x,car.y)
+coneb_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]-20,-1,car.x,car.y)
+coney_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]+20,1,car.x,car.y)
 
 cone_s.add(coneb_back)
 cone_s.add(coney_back)
@@ -487,6 +506,7 @@ draw_blue_cone.append([0,0])
 dis_blue.append(0)
 vektor_blue.append([0,0])
 q=q+1
+
 
     
 for pa in path_man:
@@ -717,8 +737,7 @@ while True:
                 if event.key ==K_RETURN:
                     
                     start_action=True
-                    
-                    
+
                 if event.key ==K_BACKSPACE:
                     
                     car.reset()
@@ -750,12 +769,13 @@ while True:
                     print("max lr:",lr)
                 
                 if event.key == K_t:
-                    
-                    if os.path.isdir(path): shutil.rmtree(path)
-                    os.mkdir(path)
-                    ckpt_path = os.path.join('./'+MODE[n_model], 'DDPG.ckpt')
-                    save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
-                    print("\nSave Model %s\n" % save_path)
+                    pass
+
+                    #if os.path.isdir(path): shutil.rmtree(path)
+                    #os.mkdir(path)
+                    #ckpt_path = os.path.join('./'+MODE[n_model], 'DDPG.ckpt')
+                    #save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
+                    #print("\nSave Model %s\n" % save_path)
                                         
 
                     
@@ -803,84 +823,7 @@ while True:
     #         list_cone_yellow=[]
     # =============================================================================
         ##key event 
-        if start_action==True:
-            
-            start_timer=True
-            #print("observation:",observation)
-            #action=RL. choose_action(observation)
-            #print("action:",action)
-            action = actor.choose_action(observation)
-            action = np.clip(np.random.normal(action, var), *ACTION_BOUND)
-            action[0]=action[0]+0.5
-            action[1]=action[1]-3.5
-            print("action:",action)
-            actor.angle.append(action[1])
-            actor.accelerate.append(action[0])
-            #action = np.clip(np.random.normal(action, var), *ACTION_BOUND)
-            #print("action:",action)
-            car.accelerate(action[0])
-            
-            if angle<half_Max_angle and angle>-half_Max_angle:
-                
-                angle=angle+action[1]
-                
-        for i in range (0, p+1):
-            
-            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-CENTER[0],list_cone_yellow[i].y-CENTER[1]))
-            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
-        
-        for i in range (0, q+1):
-            
-            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-CENTER[0],list_cone_blue[i].y-CENTER[1]),(car.x,car.y))
-            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
-    
-        for i in range (0, j+1):
-            
-            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
-            
-        if start_action==True:
-            
-            #if Render==True:
-                
-            for i in range (0, q+1):
-            
-                if dis_blue[i]<safty_distance_turning:
-                    
-                    if dis_blue[i]<safty_distance_impact:
-                        angle=half_Max_angle
-                        #car.deaccelerate()
-                        
-                        break
-                    elif angle>half_Max_angle-var:
-                        
-                        angle=0
-                        
-                    action[1]=3
-                    if angle<half_Max_angle and angle>-half_Max_angle:
-            
-                        angle=angle+action[1]
-                        
-                    break
-                
-            for i in range (0, p+1):
-            
-                if dis_yellow[i]<safty_distance_turning:
-                    
-                    if dis_yellow[i]<safty_distance_impact:
-                        angle=-half_Max_angle
-                        #car.deaccelerate()
-                        
-                        break
-                    elif angle<-half_Max_angle+var:
-                        
-                        angle=0
-                        
-                    action[1]=-3   
-                    if angle<half_Max_angle and angle>-half_Max_angle:
-            
-                        angle=angle+action[1]
-                        
-                    break
+
                     
             
 # =============================================================================
@@ -947,11 +890,11 @@ while True:
         text_colour= font.render('colour: ' + str(round(screen.get_at(((int(CENTER[0]-50), int(CENTER[1]-50)))).g,2)), 1, (0, 0, 102))   
         textpos_colour = text_colour.get_rect(centery=305, left=20)
         
-        text_dis_yellow= font.render('distance to yellow cone: ' + str(round(float(dis_yellow[0]),2)), 1, (0, 0, 102))   
-        textpos_dis_yellow = text_dis_yellow.get_rect(centery=345, left=20)
+        #text_dis_yellow= font.render('distance to yellow cone: ' + str(round(float(dis_yellow[0]),2)), 1, (0, 0, 102))   
+        #textpos_dis_yellow = text_dis_yellow.get_rect(centery=345, left=20)
         
-        text_dis_blue= font.render('distance to blue cone: ' + str(round(float(dis_blue[0]),2)), 1, (0, 0, 102))   
-        textpos_dis_blue =text_dis_blue.get_rect(centery=385, left=20)
+        #text_dis_blue= font.render('distance to blue cone: ' + str(round(float(dis_blue[0]),2)), 1, (0, 0, 102))   
+        #textpos_dis_blue =text_dis_blue.get_rect(centery=385, left=20)
         
         
         
@@ -984,9 +927,96 @@ while True:
     
         model=cv.rotate(model,CENTER,car.dir)
         
+        for i in range (0, p+1):
+            
+            dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-model[7][0][0],list_cone_yellow[i].y-model[7][0][1]))
+            draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
+        
+        for i in range (0, q+1):
+            
+            dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-model[7][0][0],list_cone_blue[i].y-model[7][0][1]),(car.x,car.y))
+            draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
+    
+        for i in range (0, j+1):
+            
+            draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
     
         ##start drawing
         
+        if start_action==True:
+            
+            start_timer=True
+            #print("observation:",observation)
+            #action=RL. choose_action(observation)
+            #print("action:",action)
+            action = actor.choose_action(observation)
+            action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
+            action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
+            
+            #print("action:",action)
+            #print("car.speed:",car.speed)
+            if car.speed<=1:
+                action[0]=0.5
+          
+            #print("action:",action)
+
+            angle_old=angle
+            if angle<half_Max_angle and angle>-half_Max_angle:
+                
+                angle=angle+action[1]
+                
+            
+            #if Render==True:
+                
+            for i in range (0, q+1):
+            
+                if dis_blue[i]<safty_distance_turning:
+                    
+                    if dis_blue[i]<safty_distance_impact:
+                        
+                        angle=half_Max_angle
+                        action[1]=half_Max_angle-angle_old
+                        break
+                    
+                    elif angle>half_Max_angle-5:
+                        
+                        angle=0
+                        action[1]=0-angle_old
+                        break
+                    
+                    if angle<half_Max_angle and angle>-half_Max_angle:
+                        
+                        action[1]=3
+                        angle=angle+action[1]
+                        
+                    break
+                
+            for i in range (0, p+1):
+            
+                if dis_yellow[i]<safty_distance_turning:
+                    
+                    if dis_yellow[i]<safty_distance_impact:
+                        
+                        angle=-half_Max_angle
+                        action[1]=-half_Max_angle-angle_old
+                        break
+                    
+                    elif angle<-half_Max_angle+5:
+                        
+                        angle=0
+                        action[1]=0-angle_old
+                        break
+                     
+                    if angle<half_Max_angle and angle>-half_Max_angle:
+                        
+                        action[1]=-3
+                        angle=angle+action[1]
+                        
+                    break
+                
+            car.accelerate(action[0])
+            actor.angle.append(action[1])
+            actor.accelerate.append(action[0])
         
         ##draw background
         if Render==True:
@@ -1104,6 +1134,7 @@ while True:
         ##draw back axis extension
         
         ##draw distance to cones
+        #print("model[7][0]:",model[7][0])
         for i in range (0, q+1):
             
             if dis_blue[i]<bound_lidar:
@@ -1139,11 +1170,11 @@ while True:
         ##draw  the circle which car moving along in canvas
         if  angle>0:
             
-            pygame.draw.arc(canvas, (255,255,102), (model[18][0][0]-model[19],model[18][0][1]-model[19],2*model[19],2*model[19]), 0, 360, 3)
+            pygame.draw.arc(canvas, (255,255,102), (model[18][0][0]-model[19],model[18][0][1]-model[19],2*model[19],2*model[19]), 0, 360, 0)
         
         if  angle<0:
             
-            pygame.draw.arc(canvas, (255,255,102), (model[20][0][0]-model[21],model[20][0][1]-model[21],2*model[21],2*model[21]), 0, 360, 3)
+            pygame.draw.arc(canvas, (255,255,102), (model[20][0][0]-model[21],model[20][0][1]-model[21],2*model[21],2*model[21]), 0, 360, 0)
         
         ##draw  the car moving circle in canvas
         
@@ -1165,8 +1196,8 @@ while True:
             screen.blit(text_dir, textpos_dir)
             screen.blit(text_speed, textpos_speed)
             screen.blit(text_colour, textpos_colour)
-            screen.blit(text_dis_yellow, textpos_dis_yellow)
-            screen.blit(text_dis_blue, textpos_dis_blue)
+            #screen.blit(text_dis_yellow, textpos_dis_yellow)
+            #screen.blit(text_dis_blue, textpos_dis_blue)
             screen.blit(text_yellow, textpos_yellow)
             screen.blit(text_blue, textpos_blue)
             screen.blit(text_speed_v, textpos_speed_v)
@@ -1196,7 +1227,7 @@ while True:
                 dis_yellow_sqr_sum=dis_yellow_sqr_sum+pow(dis_yellow[i],2)
                 
                 
-        
+
         k=len(vektor_blue_temp)
         l=len(vektor_yellow_temp)
         if k>0 and l>0:
@@ -1238,19 +1269,29 @@ while True:
         ##timer 
         #reward=distance_faktor*distance
         if start_action==True:
-            if math.sqrt(diff_sum_yb)>0.2:
+            if math.sqrt(diff_sum_yb)>1:
                 
                 reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(diff_sum_yb))
                 
             else:
             
-                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/0.2)
+                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
             #reward=car.speed*speed_faktor+distance_faktor*distance
             
             reward_sum=reward_sum+reward
 
+            for i in range (0, q+1):
             
-            if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
+                if dis_blue[i]<collision_distance:
+                    collide=True
+                    
+            for i in range (0, p+1):
+            
+                if dis_yellow[i]<collision_distance:
+                    collide=True
+                    
+            if collide==True or count/COUNT_FREQUENZ>2: 
+            #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 
                 reward=-pow(car.speed,2)
                 car.impact()
@@ -1271,13 +1312,15 @@ while True:
                 distance=0
                 angle=0
                 count=0
+                collide=False
                 episode=episode+1
     
             #RL.store_transition(observation, action, reward)
             M.store_transition(observation_old, action, reward, observation)
             #print("MEMORY_CAPACITY:",M.pointer)
             if M.pointer > MEMORY_CAPACITY:
-                var = max([var*0.9999, VAR_MIN])    # decay the action randomness
+                var1 = max([var1*0.9999, VAR_MIN])    # decay the action randomness
+                var2 = max([var2*0.99999, VAR_MIN]) 
                 b_M = M.sample(BATCH_SIZE)
                 b_s = b_M[:, :input_max]
                 b_a = b_M[:, input_max: input_max + ACTION_DIM]
@@ -1306,7 +1349,7 @@ while True:
         ##update screen
         
     else:
-        print("var:",var)
+        print("var1:",var1,"var2:",var2)
         print("MEMORY_CAPACITY:",M.pointer)
         if os.path.isdir(path): shutil.rmtree(path)
         os.mkdir(path)
