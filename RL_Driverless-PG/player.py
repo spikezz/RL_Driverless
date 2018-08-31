@@ -82,7 +82,7 @@ class Player(pygame.sprite.Sprite):
         self.x, self.y = findspawn()
         self.dir = 0
         self.speed = 0.0
-        self.maxspeed = 10.0
+        self.maxspeed = 5.0
         self.minspeed = -1
         self.acceleration = 0.5
         self.deacceleration = 1

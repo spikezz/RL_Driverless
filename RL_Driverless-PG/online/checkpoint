@@ -1,0 +1,2 @@
+model_checkpoint_path: "PG.ckpt"
+all_model_checkpoint_paths: "PG.ckpt"

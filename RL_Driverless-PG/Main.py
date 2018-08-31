@@ -322,24 +322,26 @@ for t in range (1,23):
 #path_man.append([path_man[30][0]-48.29,path_man[30][1]-12.94])
 #path_man.append([path_man[31][0]-25*math.sqrt(3),path_man[31][1]-25])
     
-coneb_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]-20,-1,car.x,car.y)
-coney_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]+20,1,car.x,car.y)
-
-cone_s.add(coneb_back)
-cone_s.add(coney_back)
-
-list_cone_blue.append(coneb_back)
-list_cone_yellow.append(coney_back)
-
-draw_yellow_cone.append([0,0])
-dis_yellow.append(0)
-vektor_yellow.append([0,0])
-p=p+1
-
-draw_blue_cone.append([0,0])
-dis_blue.append(0)
-vektor_blue.append([0,0])
-q=q+1
+# =============================================================================
+# coneb_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]-20,-1,car.x,car.y)
+# coney_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]+20,1,car.x,car.y)
+# 
+# cone_s.add(coneb_back)
+# cone_s.add(coney_back)
+# 
+# list_cone_blue.append(coneb_back)
+# list_cone_yellow.append(coney_back)
+# 
+# draw_yellow_cone.append([0,0])
+# dis_yellow.append(0)
+# vektor_yellow.append([0,0])
+# p=p+1
+# 
+# draw_blue_cone.append([0,0])
+# dis_blue.append(0)
+# vektor_blue.append([0,0])
+# q=q+1
+# =============================================================================
 
     
 for pa in path_man:
@@ -387,7 +389,7 @@ path = './'+MODE[n_model]
 if LOAD:
     saver.restore(RL.sess, tf.train.latest_checkpoint(path))
 else:
-    sess.run(tf.global_variables_initializer())
+    RL.sess.run(tf.global_variables_initializer())
 
 ###main loop process
         
@@ -1165,13 +1167,13 @@ while True:
         #reward=distance_faktor*distance
         if start_action==True:
             
-            if math.sqrt(diff_sum_yb)>0.2:
+            if math.sqrt(diff_sum_yb)>1:
                 
                 reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(diff_sum_yb))
                 
             else:
             
-                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/0.2)
+                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
             #reward=car.speed*speed_faktor+distance_faktor*distance
             
             reward_sum=reward_sum+reward
@@ -1188,10 +1190,10 @@ while True:
                 if dis_yellow[i]<collision_distance:
                     collide=True
                     
-            if collide==True or count/COUNT_FREQUENZ>1: 
+            if collide==True or count/COUNT_FREQUENZ>1.5: 
             #if pygame.sprite.spritecollide(car, cone_s, False) : 
-                
-                reward=-pow(car.speed,3)
+                if collide==True:
+                    reward=-pow(car.speed,3)
                 car.impact()
                 car.reset()
                 car.set_start_direction(90)
@@ -1400,6 +1402,6 @@ while True:
         if os.path.isdir(path): shutil.rmtree(path)
         os.mkdir(path)
         ckpt_path = os.path.join('./'+MODE[n_model], 'PG.ckpt')
-        save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
+        save_path = saver.save(RL.sess, ckpt_path, write_meta_graph=False)
         print("\nSave Model %s\n" % save_path)
 ###main loop process

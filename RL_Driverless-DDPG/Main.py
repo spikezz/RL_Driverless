@@ -23,13 +23,13 @@ tf.set_random_seed(1)
 
 MAX_EPISODES = 40
 MAX_EP_STEPS = 200
-LR_A = 1e-6  # learning rate for actor
-LR_C = 1e-6  # learning rate for critic
+LR_A = 1e-7  # learning rate for actor
+LR_C = 1e-7  # learning rate for critic
 rd = 0.9  # reward discount
 REPLACE_ITER_A = 1100
 REPLACE_ITER_C = 1000
 MEMORY_CAPACITY = 500
-BATCH_SIZE = 50
+BATCH_SIZE = 2000
 VAR_MIN = 0.1
 #LOAD = False
 LOAD = True
@@ -400,7 +400,7 @@ speed_faktor=1
 speed_faktor_enhance=1
 angle_faktor_enhance=1
 distance_faktor=0
-safty_distance_impact=65
+safty_distance_impact=68
 safty_distance_turning=75
 collision_distance=40
 distance=0
@@ -488,24 +488,26 @@ for t in range (1,23):
 #path_man.append([path_man[30][0]-48.29,path_man[30][1]-12.94])
 #path_man.append([path_man[31][0]-25*math.sqrt(3),path_man[31][1]-25])
     
-coneb_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]-20,-1,car.x,car.y)
-coney_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]+20,1,car.x,car.y)
-
-cone_s.add(coneb_back)
-cone_s.add(coney_back)
-
-list_cone_blue.append(coneb_back)
-list_cone_yellow.append(coney_back)
-
-draw_yellow_cone.append([0,0])
-dis_yellow.append(0)
-vektor_yellow.append([0,0])
-p=p+1
-
-draw_blue_cone.append([0,0])
-dis_blue.append(0)
-vektor_blue.append([0,0])
-q=q+1
+# =============================================================================
+# coneb_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]-20,-1,car.x,car.y)
+# coney_back=traffic_cone.cone(CENTER[0]+100,CENTER[1]+20,1,car.x,car.y)
+# 
+# cone_s.add(coneb_back)
+# cone_s.add(coney_back)
+# 
+# list_cone_blue.append(coneb_back)
+# list_cone_yellow.append(coney_back)
+# 
+# draw_yellow_cone.append([0,0])
+# dis_yellow.append(0)
+# vektor_yellow.append([0,0])
+# p=p+1
+# 
+# draw_blue_cone.append([0,0])
+# dis_blue.append(0)
+# vektor_blue.append([0,0])
+# q=q+1
+# =============================================================================
 
 
     
@@ -1169,12 +1171,12 @@ while True:
         
         ##draw  the circle which car moving along in canvas
         if  angle>0:
-            
-            pygame.draw.arc(canvas, (255,255,102), (model[18][0][0]-model[19],model[18][0][1]-model[19],2*model[19],2*model[19]), 0, 360, 0)
+            pass
+            #pygame.draw.arc(canvas, (255,255,102), (model[18][0][0]-model[19],model[18][0][1]-model[19],2*model[19],2*model[19]), 0, 360, 0)
         
         if  angle<0:
-            
-            pygame.draw.arc(canvas, (255,255,102), (model[20][0][0]-model[21],model[20][0][1]-model[21],2*model[21],2*model[21]), 0, 360, 0)
+            pass
+            #pygame.draw.arc(canvas, (255,255,102), (model[20][0][0]-model[21],model[20][0][1]-model[21],2*model[21],2*model[21]), 0, 360, 0)
         
         ##draw  the car moving circle in canvas
         
@@ -1290,10 +1292,10 @@ while True:
                 if dis_yellow[i]<collision_distance:
                     collide=True
                     
-            if collide==True or count/COUNT_FREQUENZ>2: 
+            if collide==True or count/COUNT_FREQUENZ>1.5: 
             #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
-                
-                reward=-pow(car.speed,2)
+                if collide==True :
+                    reward=-pow(car.speed,3)
                 car.impact()
                 car.reset()
                 car.set_start_direction(90)
