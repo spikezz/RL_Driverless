@@ -384,10 +384,10 @@ for pa in path_man:
 ##
     
 saver = tf.train.Saver()
-path = './'+MODE[n_model]
+di = './'+MODE[n_model]
 ###main loop process
 if LOAD:
-    saver.restore(RL.sess, tf.train.latest_checkpoint(path))
+    saver.restore(RL.sess, tf.train.latest_checkpoint(di))
 else:
     RL.sess.run(tf.global_variables_initializer())
 
@@ -1399,8 +1399,8 @@ while True:
         print("lr ep :",ep_use)
         episode=0
         
-        if os.path.isdir(path): shutil.rmtree(path)
-        os.mkdir(path)
+        if os.path.isdir(di): shutil.rmtree(di)
+        os.mkdir(di)
         ckpt_path = os.path.join('./'+MODE[n_model], 'PG.ckpt')
         save_path = saver.save(RL.sess, ckpt_path, write_meta_graph=False)
         print("\nSave Model %s\n" % save_path)

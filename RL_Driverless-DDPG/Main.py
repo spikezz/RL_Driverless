@@ -23,8 +23,8 @@ tf.set_random_seed(1)
 
 MAX_EPISODES = 40
 MAX_EP_STEPS = 200
-LR_A = 1e-7  # learning rate for actor
-LR_C = 1e-7  # learning rate for critic
+LR_A = 1e-6  # learning rate for actor
+LR_C = 1e-6  # learning rate for critic
 rd = 0.9  # reward discount
 REPLACE_ITER_A = 1100
 REPLACE_ITER_C = 1000
@@ -559,10 +559,10 @@ actor.add_grad_to_graph(critic.a_grads)
 
 M = Memory(MEMORY_CAPACITY, dims=2 * input_max + ACTION_DIM + 1)
 saver = tf.train.Saver()
-path = './'+MODE[n_model]
+di = './'+MODE[n_model]
 ###main loop process
 if LOAD:
-    saver.restore(sess, tf.train.latest_checkpoint(path))
+    saver.restore(sess, tf.train.latest_checkpoint(di))
 else:
     sess.run(tf.global_variables_initializer())
         
@@ -1353,8 +1353,8 @@ while True:
     else:
         print("var1:",var1,"var2:",var2)
         print("MEMORY_CAPACITY:",M.pointer)
-        if os.path.isdir(path): shutil.rmtree(path)
-        os.mkdir(path)
+        if os.path.isdir(di): shutil.rmtree(di)
+        os.mkdir(di)
         ckpt_path = os.path.join('./'+MODE[n_model], 'DDPG.ckpt')
         save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
         print("\nSave Model %s\n" % save_path)
