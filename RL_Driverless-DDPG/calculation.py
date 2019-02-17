@@ -87,13 +87,13 @@ def calculate_t(line,colour,distance,car_x,car_y):
     
     if vek_l[0]!=0:
         
-        if vek_l[0]<0:
+#        if vek_l[0]<0:
+#            
+#            sita_l=calculate_sita_r(vek_l,[0,0])
+#            
+#        elif vek_l[0]>0:
             
-            sita_l=calculate_sita_r(vek_l,[0,0])
-            
-        elif vek_l[0]>0:
-            
-            sita_l=calculate_sita_r(vek_l,[0,0])
+        sita_l=calculate_sita_r(vek_l,[0,0])
 
     else:
 

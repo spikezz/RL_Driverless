@@ -7,8 +7,6 @@ Created on Sun May  6 03:15:52 2018
 import math
 
 
-
-
 def calculate_r(point,CENTER):
     
     R=math.sqrt(pow(point[0]-CENTER[0],2)+pow(point[1]-CENTER[1],2))
@@ -87,13 +85,13 @@ def calculate_t(line,colour,distance,car_x,car_y):
     
     if vek_l[0]!=0:
         
-        if vek_l[0]<0:
+#        if vek_l[0]<0:
+#            
+#            sita_l=calculate_sita_r(vek_l,[0,0])
+#            
+#        elif vek_l[0]>0:
             
-            sita_l=calculate_sita_r(vek_l,[0,0])
-            
-        elif vek_l[0]>0:
-            
-            sita_l=calculate_sita_r(vek_l,[0,0])
+        sita_l=calculate_sita_r(vek_l,[0,0])
 
     else:
 

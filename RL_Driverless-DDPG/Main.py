@@ -31,20 +31,24 @@ REPLACE_ITER_C = 1000
 MEMORY_CAPACITY = 500
 BATCH_SIZE = 2000
 VAR_MIN = 0.1
-#LOAD = False
-LOAD = True
-MODE = ['online', 'cycle']
-n_model = 0
+
 H1=150
 H2=10
 input_max = 70
 half_Max_angle=45
 ACTION_DIM = 2
-ACTION_BOUND0 = np.array([-0.1,0.5])
+ACTION_BOUND0 = np.array([-0.1,0.6])
 ACTION_BOUND1 = np.array([-45,45])
 ACTION_BOUND=np.array([1,3])
+
+#numer of completed process
+ep_total=0
+#numer of completed process
+
 #var1 = 0.5
 #var2 = 1
+#var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
+#var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
 var1 = 0.1
 var2 = 0.1
 # all placeholder for tf
@@ -194,11 +198,12 @@ class Memory(object):
         return self.data[indices, :]
 
 
+#initial stuff
 pygame.init()
 screen = pygame.display.set_mode((1360,768),0)
 pygame.display.set_caption('Karat Simulation')
 font = pygame.font.Font(None, 40)
-
+#initial stuff
 
 ##black background for render when car is out of map 
 background = pygame.Surface(screen.get_size())
@@ -206,18 +211,15 @@ background = background.convert_alpha()
 background.fill((1, 1, 1))
 ##black background for render when car is out of map 
 
-
-##the transparent canvas for drawing the necessary geometric relationship.
-#the Zero point is at (cam.x,cam.y)
+##the transparent canvas for drawing the necessary geometric relationship.The Zero point is at (cam.x,cam.y)
 canvas = pygame.Surface(screen.get_size(),SRCALPHA ,32)
 canvas = canvas.convert_alpha()
 canvas.set_alpha(0)
-##the transparent canvas for drawing the necessary geometric relationship.
+##the transparent canvas for drawing the necessary geometric relationship.The Zero point is at (cam.x,cam.y)
 
 #testcode for shell
 #CENTER_X = 800
 #CENTER_Y = 450
-
 
 ##find the center of screen
 CENTER_X =  float(pygame.display.Info().current_w /2)
@@ -229,20 +231,11 @@ CENTER=(CENTER_X,CENTER_Y)
 half_path_wide=80
 ##constant of path
 
-
 ##create some objects
 clock = pygame.time.Clock()
 car = player.Player()
 cam = camera.Camera()
-# =============================================================================
-# coneb=traffic_cone.cone(800,380,-1,car.x,car.y)
-# coney=traffic_cone.cone(800,510,1,car.x,car.y)
-# =============================================================================
-coneb=traffic_cone.cone(CENTER[0],CENTER[1]-half_path_wide,-1,car.x,car.y)
-coney=traffic_cone.cone(CENTER[0],CENTER[1]+half_path_wide,1,car.x,car.y)
-startpoint=path.path(CENTER[0],CENTER[1],car.x,car.y)
 ##create some objects
-
 
 ##create the spriteGroup contains objects
 list_cone_yellow=[]
@@ -253,154 +246,210 @@ player_s= pygame.sprite.Group()
 tracks_s= pygame.sprite.Group()
 cone_s  = pygame.sprite.Group()
 path_s  = pygame.sprite.Group()
+cone_h  = pygame.sprite.Group()
 ##create the spriteGroup contains objects
 
-
-##some initalize tracks are points left  while driving
+##tracks  initalize. tracks are points left  while driving
 tracks.initialize()
 cam.set_pos(car.x, car.y)
-##some initalize tracks are points left  while driving
+##tracks  initalize. tracks are points left  while driving
 
-
-##add car
+##add objects
+#car
 player_s.add(car)
+#car
+#cone
+# =============================================================================
+# coneb=traffic_cone.cone(800,380,-1,car.x,car.y)
+# coney=traffic_cone.cone(800,510,1,car.x,car.y)
+# =============================================================================
+coneb=traffic_cone.cone(CENTER[0],CENTER[1]-half_path_wide,-1,car.x,car.y)
+coney=traffic_cone.cone(CENTER[0],CENTER[1]+half_path_wide,1,car.x,car.y)
+coneback=traffic_cone.cone(CENTER[0]+half_path_wide/2,CENTER[1],-1,car.x,car.y)
 cone_s.add(coneb)
 cone_s.add(coney)
-path_s.add(startpoint)
+cone_h.add(coneback)
 list_cone_blue.append(coneb)
 list_cone_yellow.append(coney)
-
+#cone
+#middle point
+startpoint=path.path(CENTER[0],CENTER[1],car.x,car.y)
+path_s.add(startpoint)
 list_path_point.append(startpoint)
-##add car
+#middle point
+##add objects
 
-
-##start angle from car
+##set orientation
 car.set_start_direction(90)
-angle=0#the turning angle of the wheel 
+#the turning angle of the wheel 
+angle=0
+#the turning angle of the wheel  
+#saved angle
 angle_old=0
-##start angle from car
-
-
-
-
+#saved angle
+##set orientation
 
 ###initial Model of the car
-
-
 ##specification of the car
 half_middle_axis_length=20
 half_horizontal_axis_length=17
 radius_of_wheel=10
 el_length=500
 ##specification of the car
-
 ##action relevant
 turing_speed=1.0
 ##action relevant
-
-
 model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
 ###initial Model of the car
 
-
 ##count/COUNT_FREQUENZ is the real time
-count=0 #every loop +1 for timer
-COUNT_FREQUENZ=500#FPS Frame(loop times) per second
-start_timer=False# switch for timer
+#every loop +1 for timer
+count=0
+#every loop +1 for timer
+#FPS Frame(loop times) per second
+COUNT_FREQUENZ=500
+#FPS Frame(loop times) per second
+#switch for timer
+start_timer=False
+#switch for timer
 ##count/COUNT_FREQUENZ is the real time
-
 
 ##map picture size
 FULL_TILE = 1000
 ##map picture size
-
 
 ##offset of the start position of the car
 xc0=car.x
 yc0=car.y
 ##offset of the start position of the car
 
-
-##the old position for speed measurements
+##the old (initial) position for speed measurements
 x_old=car.x
 y_old=car.y
-##the old position for speed measurements
-
+##the old (initial) position for speed measurements
 
 ##read the maps and draw
 for tile_num in range (0, len(maps.map_tile)):
-    
+
     #add submap idx to array
     maps.map_files.append(load_image(maps.map_tile[tile_num],False))
-
+    #add submap idx to array
+    
 for x in range (0,7):
     
     for y in range (0, 20):
         
         #add submap to mapgroup
         map_s.add(maps.Map(maps.map_1[x][y], x * FULL_TILE, y * FULL_TILE))
-        
+        #add submap to mapgroup
 ##read the maps and draw
        
+##collision detection
 collide=False
+##collision detection   
+
 ##constant for cone
 #cone_x=CENTER[0]
 #cone_y=CENTER[1]
 #position_sensor=[0,0]
+#index
 i=0
-p=0#yellow
+#index
+#counter of yellow cone
+p=0
+#counter of yellow cone
+#counter of blue cone
 q=0#blue
+#counter of blue cone
+#Projection of point on the canvas of lidar data from blue cone
 draw_blue_cone=[]
+#Projection of point on the canvas of lidar data from blue cone
+#Projection of point on the canvas of lidar data from yellow cone
 draw_yellow_cone=[]
+#Projection of point on the canvas of lidar data from yellow cone
+#absolute value of distance from yellow cone
 dis_yellow=[]
+#absolute value of distance from yellow cone
+#absolute value of distance from blue cone
 dis_blue=[]
+#absolute value of distance from blue cone
+#absolute value of distance from back cone
+dis_back=0
+#absolute value of distance from back cone
+#input data form of RL algorithm of blue cone
 vektor_blue=[]
+#input data form of RL algorithm of blue cone
+#input data form of RL algorithm of yellow cone
 vektor_yellow=[]
+#input data form of RL algorithm of yellow cone
+#sum of square of blue cone
 dis_blue_sqr_sum=0
+#sum of square of blue cone
+#sum of square of yellow cone
 dis_yellow_sqr_sum=0
+#sum of square of yellow cone
+#positive deviation
 diff_sum_yb=0
+#positive deviation
 ##constant for cone
 
-##constant for path
-j=0
-path_x=0
-path_y=0
-ctrl_pressed=False
-dis_path=0
-last_point=[startpoint.x,startpoint.y]
-draw_path=[]
-draw_path.append([0,0])
-##constant for path
-
-##constant for lidar
-k=0
-l=0
-bound_lidar=CENTER[0]*2/5
-##constant for lidar
-##append draw element
+##initial draw element
 draw_blue_cone.append([0,0])
 draw_yellow_cone.append([0,0])
 dis_blue.append(0)
 dis_yellow.append(0)
 vektor_blue.append([0,0])
 vektor_yellow.append([0,0])
-##append draw element
+##initial draw element
 
-##state
+##constant for path
+#index
+j=0
+#index
+#temporary path coordinate for mouse and auto path build
+path_x=0
+path_y=0
+#temporary path coordinate for mouse and auto path build
+ctrl_pressed=False
+#lidar effective distance
+dis_path=0
+#lidar effective distance
+#temporary last path milestone
+last_point=[startpoint.x,startpoint.y]
+#temporary last path milestone
+#path milestone
+draw_path=[]
+#path milestone
+draw_path.append([0,0])#init
+##constant for path
+
+##constant for lidar
+#number of sensored blue cone
+k=0
+#number of sensored blue cone
+#number of sensored yellow cone
+l=0
+#number of sensored yellow cone
+#range of lidar
+bound_lidar=CENTER[0]*2/5
+#range of lidar
+##constant for lidar
+
+##temporary state to form all the inputs
 state=[[],0,0,0]
-
-##state
+##temporary state to form all the inputs
 
 ##konstant of RL
-episode=0
-ep_total=0
-ep_use=0
+#switch of the summary
+summary=False
+#switch of the summary
+#ep_lr=0
 
-speed_faktor=1
+speed_faktor=2
 speed_faktor_enhance=1
 angle_faktor_enhance=1
 distance_faktor=0
-safty_distance_impact=68
+safty_distance_impact=70
 safty_distance_turning=75
 collision_distance=40
 distance=0
@@ -559,6 +608,12 @@ actor.add_grad_to_graph(critic.a_grads)
 
 M = Memory(MEMORY_CAPACITY, dims=2 * input_max + ACTION_DIM + 1)
 saver = tf.train.Saver()
+
+#LOAD = False
+LOAD = True
+MODE = ['online', 'cycle']
+n_model = 0
+
 di = './'+MODE[n_model]
 ###main loop process
 if LOAD:
@@ -568,7 +623,7 @@ else:
         
 while True:
 
-    if episode<1:
+    if summary==False:
         #show1=len(list_cone_yellow)
         ##key event continually
         
@@ -757,7 +812,7 @@ while True:
                     
                 if event.key == K_e:
                     
-                    ep_use=0
+                    #ep_lr=0
                     lr_reset=lr_reset+1
                     
                 if event.key == K_d:
@@ -942,7 +997,8 @@ while True:
         for i in range (0, j+1):
             
             draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
-    
+            
+        dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
         ##start drawing
         
         if start_action==True:
@@ -951,24 +1007,56 @@ while True:
             #print("observation:",observation)
             #action=RL. choose_action(observation)
             #print("action:",action)
+            
             action = actor.choose_action(observation)
+            #exploration
+#            epsilon=np.random.random_sample()
+#            
+#            if epsilon< var1:
+#                
+#                action[0]=np.random.random_sample()*(ACTION_BOUND0[1]-ACTION_BOUND0[0])+ACTION_BOUND0[0]
+#                #print("action[0]:",action[0])
+#                action[1]=np.random.random_sample()*(ACTION_BOUND1[1]-ACTION_BOUND1[0])+ACTION_BOUND1[0]
+#                
+#            else:
+#                action[0]=(action[0]+1)/2*(ACTION_BOUND0[1]-ACTION_BOUND0[0])+ACTION_BOUND0[0]
+                #print("epsilon:",epsilon)
+                #print("var1:",var1)
+                #print("action[0]:",action[0])
+                #print("action[1]:",action[1])
+                #print("action[1]:",action[1])
             action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
             action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
-            
+            #exploration
             #print("action:",action)
             #print("car.speed:",car.speed)
-            if car.speed<=1:
-                action[0]=0.5
+            
+#            if car.speed<=1:
+#                action[0]=0.5
           
             #print("action:",action)
-
+            
+#            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
+#                
+#                angle=angle+action[1]
+#                
+#            elif angle<half_Max_angle and angle+action[1]>half_Max_angle:
+#                
+#                angle=half_Max_angle
+#                action[1]=half_Max_angle-angle
+#                
+#            elif angle>-half_Max_angle and angle+action[1]<-half_Max_angle:
+#                
+#                angle=-half_Max_angle
+#                action[1]=-half_Max_angle-angle
+#                
             angle_old=angle
-            if angle<half_Max_angle and angle>-half_Max_angle:
+               
+            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
                 
                 angle=angle+action[1]
                 
             
-            #if Render==True:
                 
             for i in range (0, q+1):
             
@@ -988,7 +1076,7 @@ while True:
                     
                     if angle<half_Max_angle and angle>-half_Max_angle:
                         
-                        action[1]=3
+                        action[1]=ACTION_BOUND1[1]
                         angle=angle+action[1]
                         
                     break
@@ -1011,12 +1099,14 @@ while True:
                      
                     if angle<half_Max_angle and angle>-half_Max_angle:
                         
-                        action[1]=-3
+                        action[1]=ACTION_BOUND1[0]
                         angle=angle+action[1]
                         
                     break
                 
             car.accelerate(action[0])
+            #print("car.speed",car.speed)
+            #print("action[0]",action[0])
             actor.angle.append(action[1])
             actor.accelerate.append(action[0])
         
@@ -1035,9 +1125,10 @@ while True:
         
         ##draw cones
         cone_s.update(cam.x, cam.y)
+        cone_h.update(cam.x, cam.y)
         if Render==True:
-            
             cone_s.draw(screen)
+            cone_h.draw(screen)
         ##draw cones
         
         ##draw path point
@@ -1210,10 +1301,13 @@ while True:
         
         ##start drawing
         
-        ##interface for RL 
+        #vektor_blue Within radar range
         vektor_blue_temp=[]
+        #vektor_blue Within radar range
+        #vektor_yellow Within radar range
         vektor_yellow_temp=[]
-    
+        #vektor_yellow Within radar range
+        
         for i in range (0, q+1):
             
             if dis_blue[i]<bound_lidar:
@@ -1292,11 +1386,14 @@ while True:
                 if dis_yellow[i]<collision_distance:
                     collide=True
                     
-            if collide==True or count/COUNT_FREQUENZ>1.5: 
+            if dis_back<collision_distance*1.5:
+                collide=True
+                
+            if collide==True or count/COUNT_FREQUENZ>0.5: 
             #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 if collide==True :
                     reward=-pow(car.speed,3)
-                car.impact()
+                    car.impact()
                 car.reset()
                 car.set_start_direction(90)
 
@@ -1315,7 +1412,7 @@ while True:
                 angle=0
                 count=0
                 collide=False
-                episode=episode+1
+                summary=True
     
             #RL.store_transition(observation, action, reward)
             M.store_transition(observation_old, action, reward, observation)
@@ -1323,6 +1420,8 @@ while True:
             if M.pointer > MEMORY_CAPACITY:
                 var1 = max([var1*0.9999, VAR_MIN])    # decay the action randomness
                 var2 = max([var2*0.99999, VAR_MIN]) 
+#                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
+#                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
                 b_M = M.sample(BATCH_SIZE)
                 b_s = b_M[:, :input_max]
                 b_a = b_M[:, input_max: input_max + ACTION_DIM]
@@ -1373,7 +1472,7 @@ while True:
         if running_reward_max<running_reward and ep_total>1:
             
             running_reward_max=running_reward
-            ep_use=0
+            #ep_lr=0
             lr_reset=lr_reset+1
            
   
@@ -1392,7 +1491,7 @@ while True:
         #if RL.learning_rate>0.001:
 
         print("lr_reset:",lr_reset)
-        #RL.learning_rate=0.3/(ep_use+3000)
+        #RL.learning_rate=0.3/(ep_lr+3000)
         #lr_set.append(RL.learning_rate)
         #print("learning rate:",RL.learning_rate)
         #print("max lr:",lr)
@@ -1449,11 +1548,12 @@ while True:
         actor.accelerate=[]
 
         
-        
+        #print(actor.policy_grads[0])
         ep_total=ep_total+1
         print("totaol train:",ep_total)
-        ep_use=ep_use+1
-        print("lr ep :",ep_use)
-        episode=0
+        print("LOAD:",LOAD)
+#        ep_lr=ep_lr+1
+#        print("lr ep :",ep_lr)
+        summary=False
 
 ###main loop process

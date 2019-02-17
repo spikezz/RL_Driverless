@@ -83,9 +83,9 @@ class Player(pygame.sprite.Sprite):
         self.dir = 0
         self.speed = 0.0
         self.maxspeed = 5.0
-        self.minspeed = -1.85
-        self.acceleration = 1.0
-        self.deacceleration = 2
+        self.minspeed = -0.5
+        self.acceleration = 0.6
+        self.deacceleration = 1.5
         self.softening = 0.04
         self.steering = 1.60
         self.tracks = False
@@ -170,10 +170,12 @@ class Player(pygame.sprite.Sprite):
 
 #Accelerate the vehicle
     def accelerate(self,a):
-        if self.speed < self.maxspeed and self.speed > self.minspeed:
+        if self.speed <=self.maxspeed and self.speed >=self.minspeed and self.speed + a>=self.minspeed and self.speed + a<=self.maxspeed:
             self.speed = self.speed + a
-            
-
+        elif self.speed + a<=self.minspeed and self.speed >=self.minspeed:
+            self.speed = self.minspeed
+        elif self.speed + a>=self.maxspeed and self.speed <=self.maxspeed:
+            self.speed = self.maxspeed
 # =============================================================================
 #             if self.speed < self.maxspeed / 3:
 #                 self.emit_tracks()
@@ -181,8 +183,10 @@ class Player(pygame.sprite.Sprite):
 
 #Deaccelerate.
     def deaccelerate(self):
-        if self.speed > self.minspeed:
+        if (self.speed >= self.minspeed) and (self.speed - self.deacceleration>self.minspeed):
             self.speed = self.speed - self.deacceleration
+        else:
+            self.speed = self.minspeed
             #self.emit_tracks()
 
 #Steer.
