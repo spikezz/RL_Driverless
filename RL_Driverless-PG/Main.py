@@ -258,7 +258,9 @@ summary=False
 #numer of completed process
 ep_total=0
 #numer of completed process
-#ep_lr=0
+#episode after max reward updated
+ep_lr=0
+#episode after max reward updated
 #weight for the speed in reward
 speed_faktor=1
 #weight for the speed in reward
@@ -276,7 +278,9 @@ distance_faktor=0
 #minimum distance before impact
 safty_distance_impact=70
 #minimum distance before impact
-#safty_distance_turning=75
+#minimum distance before turning
+safty_distance_turning=75
+#minimum distance before turning
 #distance which means impact
 collision_distance=40
 #distance which means impact
@@ -286,37 +290,73 @@ distance=0
 #distance every episode
 distance_set=[]
 #distance every episode
+#reward of the current state and action
 reward=1
+#reward of the current state and action
+#show reward for the last episode
 reward_show=0
+#show reward for the last episode
+#temporary reward of the whole episode 
 reward_sum=0
+#temporary reward of the whole episode 
+#average whole episode reward of the whole training  process
 reward_mean=[]
+#average whole episode reward of the whole training  process
+#set of runing reward
 rr=[]
+#set of runing reward
+#index of runing reward set
 rr_idx=0
+#index of runing reward set
+#reward of the whole episode 
 running_reward =0
+#reward of the whole episode 
+#max running reward until now
 running_reward_max=0
+#max running reward until now
+#ratio of the max max running reward and the average running reward.1 is the goal
 reward_mean_max_rate=[]
+#ratio of the max max running reward and the average running reward.1 is the goal
+#standardized Reward
 vt=0
-
+#standardized Reward
+#learning start
 start_action=False
+#learning start
+#Rendering start
 Render=False
-
+#Rendering star
+#max input data
 input_max=70
+#max input data
+#dimension of the action
 action_n=7
+#dimension of the action
+#reward_decay
 rd= 0.9
-
+#reward_decay
+#learning rate
 lr =0.00001
-lr_use=1
-lr_reset=0
+#learning rate
+#lr_use=1
+#max reward reset
+max_reward_reset=0
+#max reward reset
+#set of manual changed learning rate 
 lr_set=[]
+#set of manual changed learning rate 
+#dimension of inputs for RL Agent
 features_n=input_max
-
+#dimension of inputs for RL Agent
+#inputs state of RL Agent
 observation=np.zeros(input_max)
+#inputs state of RL Agent
 for t in range (0,input_max):
     observation[t]=0
-
+#output action of RL Agent
 action = 0
+#output action of RL Agent
 ##konstant of RL
-
 
 ##PG init
 RL = PolicyGradient(
@@ -587,7 +627,8 @@ while True:
                 
         ##system event
         for event in pygame.event.get():
-            
+            #print("event.type",dir(pygame.event))
+            print("event",event)
             # quit for windows
             if event.type == QUIT:
                         
@@ -606,7 +647,7 @@ while True:
                     sys.exit()
                     
                 #timer
-                if event.key == K_SPACE :  
+                if event.unicode == ' ':  
                     
                     if start_timer==False: 
                         
@@ -616,17 +657,17 @@ while True:
                         
                         start_timer=False
                         
-                if event.key ==K_RETURN:
+                if event.unicode == '\r':
                     
                     start_action=True
                     
                     
-                if event.key ==K_BACKSPACE:
+                if event.unicode == '\x08':
                     
                     car.reset()
                     car.set_start_direction(90)
                 
-                if event.key == K_r:
+                if event.unicode == 'r':
                     
                     if  Render==False: 
                         
@@ -639,16 +680,18 @@ while True:
                 if event.key == K_e:
                     
                     #ep_lr=0
-                    lr_reset=lr_reset+1
+                    max_reward_reset=max_reward_reset+1
                     
-                if event.key == K_d:
+                if event.unicode == 'd':
                     
                     lr=lr/10
+                    RL.learning_rate=lr
                     print("max lr:",lr)
 
-                if event.key == K_m:
+                if event.unicode == 'm':
 
                     lr=lr*10
+                    RL.learning_rate=lr
                     print("max lr:",lr)
                 
                 if event.key == K_t:
@@ -918,54 +961,54 @@ while True:
             
             for i in range (0, q+1):
             
-                #if dis_blue[i]<safty_distance_turning:
+                if dis_blue[i]<safty_distance_turning:
                 
-                if dis_blue[i]<safty_distance_impact:
-                    angle=45
-                    #car.deaccelerate()
+                    if dis_blue[i]<safty_distance_impact:
+                        angle=45
+                        #car.deaccelerate()
+                        action=1
+                        break
+                  
+                    if angle<0:
+                         
+                        angle=-1
+                         
+                    if angle<46:
+                         
+                        angle=angle+car.steering
+                        
+                    if car.speed<=0:
+                        
+                        car.accelerate()
+                
                     action=1
                     break
-              
-                if angle<0:
-                     
-                    angle=-1
-                     
-                if angle<46:
-                     
-                    angle=angle+car.steering
-                    
-                if car.speed<=0:
-                    
-                    car.accelerate()
-            
-                action=1
-                break
             
             for i in range (0, p+1):
             
-                #if dis_yellow[i]<safty_distance_turning:
+                if dis_yellow[i]<safty_distance_turning:
                     
-                if dis_yellow[i]<safty_distance_impact:
-                    angle=-45
+                    if dis_yellow[i]<safty_distance_impact:
+                        angle=-45
+                        #car.deaccelerate()
+                        action=2
+                        break
+                     
+                    if angle>0:
+                         
+                        angle=1
+                     
+                    if angle>-46:
+                         
+                        angle=angle-car.steering
+                    
+                    if car.speed<=0:
+                        
+                        car.accelerate()
+                        
                     #car.deaccelerate()
                     action=2
                     break
-                 
-                if angle>0:
-                     
-                    angle=1
-                 
-                if angle>-46:
-                     
-                    angle=angle-car.steering
-                
-                if car.speed<=0:
-                    
-                    car.accelerate()
-                    
-                #car.deaccelerate()
-                action=2
-                break
 
         ##start drawing
         
@@ -1328,8 +1371,8 @@ while True:
         if running_reward_max<running_reward and ep_total>1:
 
             running_reward_max=running_reward
-            #ep_lr=0
-            lr_reset=lr_reset+1
+            ep_lr=0
+            max_reward_reset=max_reward_reset+1
             #RL.learning_rate=lr*10
             
         #else:
@@ -1338,7 +1381,7 @@ while True:
             #deterministic_count=0
             #RL.learning_rate=0.1
             #ep_lr=0
-            #lr_reset=lr_reset+1
+            #max_reward_reset=max_reward_reset+1
             
         #if deterministic_count<0:
         
@@ -1361,7 +1404,7 @@ while True:
             reward_mean_max_rate.append(running_reward_max/reward_mean[rr_idx-1])
         #if RL.learning_rate>0.001:
 
-        print("lr_reset:",lr_reset)
+        print("max_reward_reset:",max_reward_reset)
         #RL.learning_rate=0.3/(ep_lr+3000)
         lr_set.append(RL.learning_rate)
         print("learning rate:",RL.learning_rate)
@@ -1460,8 +1503,8 @@ while True:
         
         ep_total=ep_total+1
         print("totaol train:",ep_total)
-#        ep_lr=ep_lr+1
-#        print("lr ep :",ep_lr)
+        ep_lr=ep_lr+1
+        print("lr ep :",ep_lr)
         summary=False
         
         if os.path.isdir(di): shutil.rmtree(di)

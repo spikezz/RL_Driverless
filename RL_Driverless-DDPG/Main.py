@@ -14,43 +14,32 @@ import pickle as pk
 import matplotlib.pyplot as plt
 import os
 import shutil
-from pygame.locals import *
 from loader import load_image
 from operator import itemgetter, attrgetter
+from pygame.locals import *
 
 np.random.seed(1)
 tf.set_random_seed(1)
 
-MAX_EPISODES = 40
-MAX_EP_STEPS = 200
-LR_A = 1e-6  # learning rate for actor
-LR_C = 1e-6  # learning rate for critic
-rd = 0.9  # reward discount
-REPLACE_ITER_A = 1100
-REPLACE_ITER_C = 1000
-MEMORY_CAPACITY = 500
-BATCH_SIZE = 2000
-VAR_MIN = 0.1
+
+#LR_A = 1e-6  # learning rate for actor
+#LR_C = 1e-6  # learning rate for critic
+#rd = 0.9  # reward discount
+#REPLACE_ITER_A = 1100
+#REPLACE_ITER_C = 1000
+#MEMORY_CAPACITY = 500
+#BATCH_SIZE = 2000
+#VAR_MIN = 0.1
 
 H1=150
 H2=10
 input_max = 70
-half_Max_angle=45
-ACTION_DIM = 2
-ACTION_BOUND0 = np.array([-0.1,0.6])
-ACTION_BOUND1 = np.array([-45,45])
-ACTION_BOUND=np.array([1,3])
+#half_Max_angle=45
+#ACTION_DIM = 2
+#ACTION_BOUND0 = np.array([-0.1,0.5])
+#ACTION_BOUND1 = np.array([-45,45])
+#ACTION_BOUND=np.array([1,3])
 
-#numer of completed process
-ep_total=0
-#numer of completed process
-
-#var1 = 0.5
-#var2 = 1
-#var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
-#var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
-var1 = 0.1
-var2 = 0.1
 # all placeholder for tf
 with tf.name_scope('S'):
     S = tf.placeholder(tf.float32, shape=[None, input_max], name='s')
@@ -259,10 +248,6 @@ cam.set_pos(car.x, car.y)
 player_s.add(car)
 #car
 #cone
-# =============================================================================
-# coneb=traffic_cone.cone(800,380,-1,car.x,car.y)
-# coney=traffic_cone.cone(800,510,1,car.x,car.y)
-# =============================================================================
 coneb=traffic_cone.cone(CENTER[0],CENTER[1]-half_path_wide,-1,car.x,car.y)
 coney=traffic_cone.cone(CENTER[0],CENTER[1]+half_path_wide,1,car.x,car.y)
 coneback=traffic_cone.cone(CENTER[0]+half_path_wide/2,CENTER[1],-1,car.x,car.y)
@@ -291,6 +276,7 @@ angle_old=0
 
 ###initial Model of the car
 ##specification of the car
+half_Max_angle=45
 half_middle_axis_length=20
 half_horizontal_axis_length=17
 radius_of_wheel=10
@@ -440,59 +426,131 @@ state=[[],0,0,0]
 ##temporary state to form all the inputs
 
 ##konstant of RL
+#numer of completed process
+ep_total=0
+#numer of completed process
 #switch of the summary
 summary=False
 #switch of the summary
-#ep_lr=0
-
-speed_faktor=2
-speed_faktor_enhance=1
-angle_faktor_enhance=1
+#episode after max reward updated
+ep_lr=0
+#episode after max reward updated
+#weight for the speed in reward
+speed_faktor=1
+#weight for the speed in reward
+#speed_faktor_enhance=1
+#angle_faktor_enhance=1
+#weight for the distance in reward
 distance_faktor=0
-safty_distance_impact=70
+#weight for the distance in reward
+#minimum distance before impact
+safty_distance_impact=68
+#minimum distance before impact
+#minimum distance before turning
 safty_distance_turning=75
+#minimum distance before turning
+#distance which means impact
 collision_distance=40
+#distance which means impact
+#total moved distance
 distance=0
+#total moved distance
+#distance every episode
 distance_set=[]
+#distance every episode
+#reward of the current state and action
 reward=1
+#reward of the current state and action
+#show reward for the last episode
 reward_show=0
+#show reward for the last episode
+#temporary reward of the whole episode 
 reward_sum=0
+#temporary reward of the whole episode 
+#average whole episode reward of the whole training  process
 reward_mean=[]
+#average whole episode reward of the whole training  process
+#set of runing reward
 rr=[]
+#set of runing reward
+#index of runing reward set
 rr_idx=0
+#index of runing reward set
+#reward of the whole episode 
 running_reward =0
+#reward of the whole episode 
+#max running reward until now
 running_reward_max=0
+#max running reward until now
+#ratio of the max max running reward and the average running reward.1 is the goal
 reward_mean_max_rate=[]
-vt=0
-
+#ratio of the max max running reward and the average running reward.1 is the goal
+#vt=0
+#learning start
 start_action=False
-Render=True
-
-
-
-
-#rd= 0.9
-
-#lr =0.00001
-
-lr_reset=0
+#learning start
+#Rendering start
+Render=False
+#Rendering star
+# learning rate for actor
+LR_A = 1e-6
+# learning rate for actor
+# learning rate for critic
+LR_C = 1e-6
+# learning rate for critic
+# reward discount
+rd = 0.9
+# reward discount
+#after this learning number of main net update the target net of actor
+REPLACE_ITER_A = 1100
+#after this learning number of main net update the target net of actor
+#after this learning number of main net update the target net of Critic
+REPLACE_ITER_C = 1000
+#after this learning number of main net update the target net of Critic
+#occupyed memory
+MEMORY_CAPACITY = 500
+#occupyed memory
+#size of memory slice
+BATCH_SIZE = 2000
+#size of memory slice
+#minimal exploration wide of action
+VAR_MIN = 0.1
+#minimal exploration wide of action
+#initial exploration wide of action
+var1 = 0.1
+var2 = 0.1
+#initial exploration wide of action
+#dimension of action
+ACTION_DIM = 2
+#dimension of action
+#action boundary
+ACTION_BOUND0 = np.array([-0.1,0.5])
+ACTION_BOUND1 = np.array([-45,45])
+#action boundary
+#action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
+ACTION_BOUND=np.array([1,3])
+#action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
+#max reward reset
+max_reward_reset=0
+#max reward reset
+#set of manual changed learning rate 
 lr_set=[]
+#set of manual changed learning rate 
+#dimension of inputs for RL Agent
 features_n=input_max
-
+#dimension of inputs for RL Agent
+#inputs state of RL Agent
 observation=np.zeros(input_max)
+#inputs state of RL Agent
+#copy the state
 observation_old=np.zeros(input_max)
+#copy the state
 for t in range (0,input_max):
     observation[t]=0
     observation_old[t]=0
-
-action = 0
 ##konstant of RL
 
-
-
-
-##
-
+#
 path_man=[]
 corner=[]
 corner.append(32)
@@ -781,7 +839,7 @@ while True:
                     sys.exit()
                     
                 #timer
-                if event.key == K_SPACE :  
+                if event.unicode == ' ':  
                     
                     if start_timer==False: 
                         
@@ -791,16 +849,17 @@ while True:
                         
                         start_timer=False
                         
-                if event.key ==K_RETURN:
+                if event.unicode == '\r':
                     
                     start_action=True
-
-                if event.key ==K_BACKSPACE:
+                    
+                    
+                if event.unicode == '\x08':
                     
                     car.reset()
                     car.set_start_direction(90)
                 
-                if event.key == K_r:
+                if event.unicode == 'r':
                     
                     if  Render==False: 
                         
@@ -813,18 +872,20 @@ while True:
                 if event.key == K_e:
                     
                     #ep_lr=0
-                    lr_reset=lr_reset+1
+                    max_reward_reset=max_reward_reset+1
                     
-                if event.key == K_d:
+                if event.unicode == 'd':
                     
                     lr=lr/10
+                    RL.learning_rate=lr
                     print("max lr:",lr)
 
-                if event.key == K_m:
+                if event.unicode == 'm':
 
                     lr=lr*10
+                    RL.learning_rate=lr
                     print("max lr:",lr)
-                
+                             
                 if event.key == K_t:
                     pass
 
@@ -1031,8 +1092,8 @@ while True:
             #print("action:",action)
             #print("car.speed:",car.speed)
             
-#            if car.speed<=1:
-#                action[0]=0.5
+            if car.speed<=1:
+                action[0]=0.5
           
             #print("action:",action)
             
@@ -1076,7 +1137,7 @@ while True:
                     
                     if angle<half_Max_angle and angle>-half_Max_angle:
                         
-                        action[1]=ACTION_BOUND1[1]
+                        action[1]=3
                         angle=angle+action[1]
                         
                     break
@@ -1099,7 +1160,7 @@ while True:
                      
                     if angle<half_Max_angle and angle>-half_Max_angle:
                         
-                        action[1]=ACTION_BOUND1[0]
+                        action[1]=-3
                         angle=angle+action[1]
                         
                     break
@@ -1350,7 +1411,8 @@ while True:
             state[3]=np.vstack(state[0]).ravel()
             state[1]=np.vstack(vektor_speed).ravel()
             state[2]=angle
-            state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))
+            #state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))
+            state_input=np.hstack((state[1],state[2],state[3]))
             #print (state_input)
             #print ('size:',state_input.size)
             for t in range(len(state_input)):
@@ -1389,11 +1451,11 @@ while True:
             if dis_back<collision_distance*1.5:
                 collide=True
                 
-            if collide==True or count/COUNT_FREQUENZ>0.5: 
+            if collide==True or count/COUNT_FREQUENZ>1.5: 
             #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 if collide==True :
                     reward=-pow(car.speed,3)
-                    car.impact()
+                car.impact()
                 car.reset()
                 car.set_start_direction(90)
 
@@ -1472,8 +1534,8 @@ while True:
         if running_reward_max<running_reward and ep_total>1:
             
             running_reward_max=running_reward
-            #ep_lr=0
-            lr_reset=lr_reset+1
+            ep_lr=0
+            max_reward_reset=max_reward_reset+1
            
   
 
@@ -1490,7 +1552,7 @@ while True:
             reward_mean_max_rate.append(running_reward_max/reward_mean[rr_idx-1])
         #if RL.learning_rate>0.001:
 
-        print("lr_reset:",lr_reset)
+        print("max_reward_reset:",max_reward_reset)
         #RL.learning_rate=0.3/(ep_lr+3000)
         #lr_set.append(RL.learning_rate)
         #print("learning rate:",RL.learning_rate)
@@ -1552,8 +1614,8 @@ while True:
         ep_total=ep_total+1
         print("totaol train:",ep_total)
         print("LOAD:",LOAD)
-#        ep_lr=ep_lr+1
-#        print("lr ep :",ep_lr)
+        ep_lr=ep_lr+1
+        print("lr ep :",ep_lr)
         summary=False
 
 ###main loop process
