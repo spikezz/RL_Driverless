@@ -7,6 +7,12 @@ Created on Sun Feb 17 18:59:09 2019
 """
 import math
 
+def calculate_r(point1,point0):
+    
+    R=math.sqrt(pow(point1[0]-point0[0],2)+pow(point1[1]-point0[1],2)+pow(point1[2]-point0[2],2))
+    
+    return R
+
 def calculate_sita_r(point1,point0):
 
     if point1[0]-point0[0] <0:
@@ -30,7 +36,7 @@ def calculate_sita_r(point1,point0):
     return sita
 
 
-def calculate_t(line,colour,distance,car_x,car_y):
+def calculate_t(line,colour,distance):
     
     tpoint=[0,0]
     sita_l=0
@@ -38,12 +44,6 @@ def calculate_t(line,colour,distance,car_x,car_y):
     vek_l=[line[1][0]-line[0][0],line[1][1]-line[0][1]]
     
     if vek_l[0]!=0:
-        
-#        if vek_l[0]<0:
-#            
-#            sita_l=calculate_sita_r(vek_l,[0,0])
-#            
-#        elif vek_l[0]>0:
             
         sita_l=calculate_sita_r(vek_l,[0,0])
 
@@ -66,7 +66,7 @@ def calculate_t(line,colour,distance,car_x,car_y):
         
         sita_t=sita_l+90
     
-    tpoint[0]=math.cos(math.radians(sita_t))*distance+vek_l[0]+line[0][0]-car_x
-    tpoint[1]=math.sin(math.radians(sita_t))*distance+vek_l[1]+line[0][1]-car_y
+    tpoint[0]=math.cos(math.radians(sita_t))*distance+vek_l[0]+line[0][0]
+    tpoint[1]=math.sin(math.radians(sita_t))*distance+vek_l[1]+line[0][1]
     
     return tpoint

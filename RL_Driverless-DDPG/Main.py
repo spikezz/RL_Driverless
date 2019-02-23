@@ -31,9 +31,9 @@ tf.set_random_seed(1)
 #BATCH_SIZE = 2000
 #VAR_MIN = 0.1
 
-H1=150
+H1=700
 H2=10
-input_max = 70
+input_max = 80
 #half_Max_angle=45
 #ACTION_DIM = 2
 #ACTION_BOUND0 = np.array([-0.1,0.5])
@@ -407,6 +407,24 @@ last_point=[startpoint.x,startpoint.y]
 draw_path=[]
 #path milestone
 draw_path.append([0,0])#init
+#find 2 path point
+path_close_1=[0,0]
+path_close_2=[0,0]
+dis_close_path_1=0
+dis_close_path_2=0
+dis_between_path=0
+dis_close_path_temp=0
+tag=0
+tag_2=1
+path_tag=[]
+path_tag_2=[]
+ta=0
+ta_2=0
+cos_projection=0
+sin_projection=0
+swich_cal_projection=True
+#find 2 path point
+
 ##constant for path
 
 ##constant for lidar
@@ -490,7 +508,7 @@ reward_mean_max_rate=[]
 start_action=False
 #learning start
 #Rendering start
-Render=False
+Render=True
 #Rendering star
 # learning rate for actor
 LR_A = 1e-6
@@ -524,7 +542,7 @@ var2 = 0.1
 ACTION_DIM = 2
 #dimension of action
 #action boundary
-ACTION_BOUND0 = np.array([-0.1,0.5])
+ACTION_BOUND0 = np.array([-0.5,0.5])
 ACTION_BOUND1 = np.array([-45,45])
 #action boundary
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
@@ -667,8 +685,8 @@ actor.add_grad_to_graph(critic.a_grads)
 M = Memory(MEMORY_CAPACITY, dims=2 * input_max + ACTION_DIM + 1)
 saver = tf.train.Saver()
 
-#LOAD = False
-LOAD = True
+LOAD = False
+#LOAD = True
 MODE = ['online', 'cycle']
 n_model = 0
 
@@ -1008,6 +1026,8 @@ while True:
         text_colour= font.render('colour: ' + str(round(screen.get_at(((int(CENTER[0]-50), int(CENTER[1]-50)))).g,2)), 1, (0, 0, 102))   
         textpos_colour = text_colour.get_rect(centery=305, left=20)
         
+#        text_posr= font.render('POS_RAW: ' +  '( '+str(round(float(car.x),2))+' , '+str(round(float(car.y),2))+' )', 1, (0, 0, 102))   
+#        textpos_posr = text_posr.get_rect(centery=345, left=20)
         #text_dis_yellow= font.render('distance to yellow cone: ' + str(round(float(dis_yellow[0]),2)), 1, (0, 0, 102))   
         #textpos_dis_yellow = text_dis_yellow.get_rect(centery=345, left=20)
         
@@ -1056,12 +1076,82 @@ while True:
             draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
     
         for i in range (0, j+1):
-            
             draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
+#        print("draw_path",draw_path)
+        
+#        dis_close_path_temp=cal.calculate_r((list_path_point[ta].x-model[7][0][0],list_path_point[ta].y-model[7][0][1]),(car.x,car.y))
+        dis_close_path_1=1000
+        
+        for i in range (0, j+1):
             
+            dis_close_path_temp=cal.calculate_r((list_path_point[i].x-model[7][0][0],list_path_point[i].y-model[7][0][1]),(car.x,car.y))
+            
+            if dis_close_path_temp<dis_close_path_1:
+                path_close_1=draw_path[i]
+                dis_close_path_1=dis_close_path_temp
+                tag=i
+
+#        dis_close_path_temp=cal.calculate_r((list_path_point[ta_2].x-model[7][0][0],list_path_point[ta_2].y-model[7][0][1]),(car.x,car.y))
+        dis_close_path_2=1000
+#        print("dis_close_path_temp",dis_close_path_temp)
+#        print("dis_close_path_2",dis_close_path_2)
+        for i in range (0, j+1):
+            
+            dis_close_path_temp=cal.calculate_r((list_path_point[i].x-model[7][0][0],list_path_point[i].y-model[7][0][1]),(car.x,car.y))
+# and dis_close_path_temp>dis_close_path_1
+#            print("dis_close_path_temp",dis_close_path_temp)
+#            print("dis_close_path_2",dis_close_path_2)
+            if dis_close_path_temp<dis_close_path_2 and dis_close_path_temp>dis_close_path_1:
+                path_close_2=draw_path[i]
+                dis_close_path_2=dis_close_path_temp
+                tag_2=i
+
+        #init             
+        if path_tag==[]:
+            path_close_1=draw_path[0]
+            path_tag.append(tag)
+#            print("draw_path[0]",draw_path[0])
+        #init         
+                
+        if path_tag_2==[]:
+            path_close_2=draw_path[1]
+            path_tag_2.append(tag_2)
+#            print("draw_path[1]",draw_path[1])
+
+        if tag!=path_tag[ta]:
+            
+            path_tag.append(tag)
+            ta=ta+1
+            swich_cal_projection=False
+#            print("draw_path[0]",draw_path[0])
+
+        if tag_2!=path_tag_2[ta_2]:
+            
+            path_tag_2.append(tag_2)
+            ta_2=ta_2+1
+            swich_cal_projection=True 
+#            print("draw_path[1]",draw_path[1])
+            
+#        print("path_close_1",path_close_1)  
+        print("path_close_2",path_close_2)
+        print("draw_path[1]",draw_path[1])  
+#        print("draw_path[2]",draw_path[2])
+#        print("draw_path[3]",draw_path[3])
+#        cos_projection=cal.calculate_cos(swich_cal_projection)
+#        sin_projection=cal.calculate_sin()
+        print("path_tag",path_tag)
+#        print("tag length",len(path_tag))
+        print("path_tag2",path_tag_2)
+#        print("tag2 length",len(path_tag_2))
+        dis_between_path=cal.calculate_r(path_close_1,path_close_2)
+        
+#        print("dis_close_path_2",dis_close_path_2)  
+#        print("dis_close_path_1",dis_close_path_1)
+#        print("dis_between_path",dis_between_path)
+        
         dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
         ##start drawing
-        
+        car.speed=0.1
         if start_action==True:
             
             start_timer=True
@@ -1093,7 +1183,7 @@ while True:
             #print("car.speed:",car.speed)
             
             if car.speed<=1:
-                action[0]=0.5
+                action[0]=np.random.random_sample()*(ACTION_BOUND0[1]-0)
           
             #print("action:",action)
             
@@ -1116,8 +1206,10 @@ while True:
             if angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
                 
                 angle=angle+action[1]
-                
             
+            else:
+                
+                action[1]=0
                 
             for i in range (0, q+1):
             
@@ -1129,7 +1221,7 @@ while True:
                         action[1]=half_Max_angle-angle_old
                         break
                     
-                    elif angle>half_Max_angle-5:
+                    elif angle>0:
                         
                         angle=0
                         action[1]=0-angle_old
@@ -1137,7 +1229,7 @@ while True:
                     
                     if angle<half_Max_angle and angle>-half_Max_angle:
                         
-                        action[1]=3
+                        action[1]=5
                         angle=angle+action[1]
                         
                     break
@@ -1152,7 +1244,7 @@ while True:
                         action[1]=-half_Max_angle-angle_old
                         break
                     
-                    elif angle<-half_Max_angle+5:
+                    elif angle<0:
                         
                         angle=0
                         action[1]=0-angle_old
@@ -1160,7 +1252,7 @@ while True:
                      
                     if angle<half_Max_angle and angle>-half_Max_angle:
                         
-                        action[1]=-3
+                        action[1]=-5
                         angle=angle+action[1]
                         
                     break
@@ -1219,7 +1311,8 @@ while True:
             
             vektor_yellow[i]=cv.input_vektor_position(model,draw_yellow_cone[i],CENTER,car.dir)
     
-        vektor_speed=[speed*math.cos(math.radians(270-angle)),car.speed*COUNT_FREQUENZ*math.sin(math.radians(270-angle))]
+        vektor_speed=[car.speed*math.cos(math.radians(270-angle)),car.speed*math.sin(math.radians(270-angle))]
+#        print("vektor_speed",vektor_speed)
         ##
         
         
@@ -1307,8 +1400,11 @@ while True:
         for i in range (1, j+1):
             
             pygame.draw.line(canvas, (0,255,0), draw_path[i-1],draw_path[i],2)
+            
         ##draw path
-        
+
+        pygame.draw.line(canvas, (220,20,60), model[7][0],path_close_1,3)
+        pygame.draw.line(canvas, (220,20,60), model[7][0],path_close_2,3)  
         ##draw front axis extension
         if angle >= 2.3 or angle==0:
             
@@ -1435,25 +1531,38 @@ while True:
             
                 reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
             #reward=car.speed*speed_faktor+distance_faktor*distance
+
+#            if math.sqrt(diff_sum_yb)>1:
+#                
+#                reward=
+#                
+#            else:
+#            
+#                reward=
+            #reward=car.speed*speed_faktor+distance_faktor*distance
             
             reward_sum=reward_sum+reward
 
             for i in range (0, q+1):
             
                 if dis_blue[i]<collision_distance:
+                    
                     collide=True
                     
             for i in range (0, p+1):
             
                 if dis_yellow[i]<collision_distance:
+                    
                     collide=True
                     
             if dis_back<collision_distance*1.5:
+                
                 collide=True
                 
             if collide==True or count/COUNT_FREQUENZ>1.5: 
             #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 if collide==True :
+                    
                     reward=-pow(car.speed,3)
                 car.impact()
                 car.reset()

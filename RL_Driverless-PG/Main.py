@@ -223,9 +223,9 @@ path_x=0
 path_y=0
 #temporary path coordinate for mouse and auto path build
 ctrl_pressed=False
-#lidar effective distance
+#distance between to path point
 dis_path=0
-#lidar effective distance
+#distance between to path point
 #temporary last path milestone
 last_point=[startpoint.x,startpoint.y]
 #temporary last path milestone
@@ -1061,7 +1061,7 @@ while True:
             
             vektor_yellow[i]=cv.input_vektor_position(model,draw_yellow_cone[i],CENTER,car.dir)
     
-        vektor_speed=[speed*math.cos(math.radians(270-angle)),car.speed*COUNT_FREQUENZ*math.sin(math.radians(270-angle))]
+        vektor_speed=[car.speed*math.cos(math.radians(270-angle)),car.speed*math.sin(math.radians(270-angle))]
         ##
         
         

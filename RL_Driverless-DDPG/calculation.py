@@ -15,6 +15,10 @@ def calculate_r(point,CENTER):
     
     return R
 
+def calculate_cos(a):
+    projektion=0
+    
+    return projektion
 
 def calculate_sita(symbol180,point,CENTER):
     sita=0
