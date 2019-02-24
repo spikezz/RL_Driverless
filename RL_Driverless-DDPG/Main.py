@@ -31,9 +31,9 @@ tf.set_random_seed(1)
 #BATCH_SIZE = 2000
 #VAR_MIN = 0.1
 
-H1=700
+H1=180
 H2=10
-input_max = 80
+input_dim = 80
 #half_Max_angle=45
 #ACTION_DIM = 2
 #ACTION_BOUND0 = np.array([-0.1,0.5])
@@ -42,11 +42,11 @@ input_max = 80
 
 # all placeholder for tf
 with tf.name_scope('S'):
-    S = tf.placeholder(tf.float32, shape=[None, input_max], name='s')
+    S = tf.placeholder(tf.float32, shape=[None, input_dim], name='s')
 with tf.name_scope('R'):
     R = tf.placeholder(tf.float32, [None, 1], name='r')
 with tf.name_scope('S_'):
-    S_ = tf.placeholder(tf.float32, shape=[None, input_max], name='s_')
+    S_ = tf.placeholder(tf.float32, shape=[None, input_dim], name='s_')
 
 
 
@@ -108,7 +108,9 @@ class Actor(object):
 
 
 class Critic(object):
+    
     def __init__(self, sess, state_dim, action_dim, learning_rate, gamma, t_replace_iter, a, a_):
+        
         self.sess = sess
         self.s_dim = state_dim
         self.a_dim = action_dim
@@ -182,6 +184,7 @@ class Memory(object):
         self.pointer += 1
 
     def sample(self, n):
+        
         assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
         indices = np.random.choice(self.capacity, size=n)
         return self.data[indices, :]
@@ -414,14 +417,15 @@ dis_close_path_1=0
 dis_close_path_2=0
 dis_between_path=0
 dis_close_path_temp=0
+base_path_mileage=0
 tag=0
 tag_2=1
 path_tag=[]
 path_tag_2=[]
 ta=0
 ta_2=0
-cos_projection=0
-sin_projection=0
+projection=[0,0]
+
 swich_cal_projection=True
 #find 2 path point
 
@@ -462,10 +466,10 @@ speed_faktor=1
 distance_faktor=0
 #weight for the distance in reward
 #minimum distance before impact
-safty_distance_impact=68
+safty_distance_impact=60
 #minimum distance before impact
 #minimum distance before turning
-safty_distance_turning=75
+safty_distance_turning=65
 #minimum distance before turning
 #distance which means impact
 collision_distance=40
@@ -473,6 +477,12 @@ collision_distance=40
 #total moved distance
 distance=0
 #total moved distance
+#total moved distance on middle line
+distance_projection=0
+distance_projection_old=0
+speed_projection=0
+v_distance_projection=0
+#total moved distance on middle line
 #distance every episode
 distance_set=[]
 #distance every episode
@@ -535,8 +545,8 @@ BATCH_SIZE = 2000
 VAR_MIN = 0.1
 #minimal exploration wide of action
 #initial exploration wide of action
-var1 = 0.1
-var2 = 0.1
+var1 = 0.99
+var2 = 0.99
 #initial exploration wide of action
 #dimension of action
 ACTION_DIM = 2
@@ -555,19 +565,20 @@ max_reward_reset=0
 lr_set=[]
 #set of manual changed learning rate 
 #dimension of inputs for RL Agent
-features_n=input_max
+features_n=input_dim
 #dimension of inputs for RL Agent
 #inputs state of RL Agent
-observation=np.zeros(input_max)
+observation=np.zeros(input_dim)
 #inputs state of RL Agent
 #copy the state
-observation_old=np.zeros(input_max)
+observation_old=np.zeros(input_dim)
 #copy the state
-for t in range (0,input_max):
+for t in range (0,input_dim):
     observation[t]=0
     observation_old[t]=0
 ##konstant of RL
-
+input_max=np.zeros(input_dim)
+input_min=np.zeros(input_dim)
 #
 path_man=[]
 corner=[]
@@ -679,14 +690,14 @@ for pa in path_man:
 sess = tf.Session()
 
 actor = Actor(sess, ACTION_DIM, ACTION_BOUND, LR_A, REPLACE_ITER_A)
-critic = Critic(sess, input_max, ACTION_DIM, LR_C, rd, REPLACE_ITER_C, actor.a, actor.a_)
+critic = Critic(sess, input_dim, ACTION_DIM, LR_C, rd, REPLACE_ITER_C, actor.a, actor.a_)
 actor.add_grad_to_graph(critic.a_grads)
 
-M = Memory(MEMORY_CAPACITY, dims=2 * input_max + ACTION_DIM + 1)
+M = Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
 saver = tf.train.Saver()
 
-LOAD = False
-#LOAD = True
+#LOAD = False
+LOAD = True
 MODE = ['online', 'cycle']
 n_model = 0
 
@@ -804,8 +815,6 @@ while True:
                     path_new=path.path(path_x,path_y,car.x,car.y)
                     list_path_point.append(path_new)  
                     path_s.add(path_new)  
-                    
-                    
                     
                     line=[last_point,[path_new.x,path_new.y]]
                     
@@ -985,9 +994,9 @@ while True:
         
         
         #speed calculation for center of the car
-        speed=math.sqrt(pow(car.x-x_old,2)+pow(car.y-y_old,2))/(1/COUNT_FREQUENZ)#pixel/s
-        
-    
+#        speed=math.sqrt(pow(car.x-x_old,2)+pow(car.y-y_old,2))/(1/COUNT_FREQUENZ)#pixel/s
+        speed=math.sqrt(pow(car.x-x_old,2)+pow(car.y-y_old,2))
+#        print("speed",speed)
         #update the old position
         x_old=car.x
         y_old=car.y
@@ -1076,10 +1085,9 @@ while True:
             draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
     
         for i in range (0, j+1):
+            
             draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
-#        print("draw_path",draw_path)
-        
-#        dis_close_path_temp=cal.calculate_r((list_path_point[ta].x-model[7][0][0],list_path_point[ta].y-model[7][0][1]),(car.x,car.y))
+       
         dis_close_path_1=1000
         
         for i in range (0, j+1):
@@ -1090,60 +1098,75 @@ while True:
                 path_close_1=draw_path[i]
                 dis_close_path_1=dis_close_path_temp
                 tag=i
-
-#        dis_close_path_temp=cal.calculate_r((list_path_point[ta_2].x-model[7][0][0],list_path_point[ta_2].y-model[7][0][1]),(car.x,car.y))
+        
         dis_close_path_2=1000
-#        print("dis_close_path_temp",dis_close_path_temp)
-#        print("dis_close_path_2",dis_close_path_2)
+       
         for i in range (0, j+1):
             
             dis_close_path_temp=cal.calculate_r((list_path_point[i].x-model[7][0][0],list_path_point[i].y-model[7][0][1]),(car.x,car.y))
-# and dis_close_path_temp>dis_close_path_1
-#            print("dis_close_path_temp",dis_close_path_temp)
-#            print("dis_close_path_2",dis_close_path_2)
+
             if dis_close_path_temp<dis_close_path_2 and dis_close_path_temp>dis_close_path_1:
                 path_close_2=draw_path[i]
                 dis_close_path_2=dis_close_path_temp
                 tag_2=i
-
         #init             
         if path_tag==[]:
+            
             path_close_1=draw_path[0]
             path_tag.append(tag)
-#            print("draw_path[0]",draw_path[0])
+
         #init         
                 
         if path_tag_2==[]:
+            
             path_close_2=draw_path[1]
             path_tag_2.append(tag_2)
-#            print("draw_path[1]",draw_path[1])
-
+            
+        dis_between_path=cal.calculate_r(path_close_1,path_close_2)
+        
         if tag!=path_tag[ta]:
             
             path_tag.append(tag)
             ta=ta+1
             swich_cal_projection=False
-#            print("draw_path[0]",draw_path[0])
-
+#            print("ta",ta) 
         if tag_2!=path_tag_2[ta_2]:
             
             path_tag_2.append(tag_2)
+            if tag_2>path_tag_2[ta_2]:
+                swich_cal_projection=True 
+                base_path_mileage=dis_between_path*ta
             ta_2=ta_2+1
-            swich_cal_projection=True 
-#            print("draw_path[1]",draw_path[1])
+#            print("ta_2",ta_2) 
             
+        
+        
+#        print("dis_between_path",dis_between_path)
+        projection=cal.calculate_projection(swich_cal_projection,dis_close_path_1,dis_close_path_2,dis_between_path)
+        distance_projection=base_path_mileage+projection[0]
+        v_distance_projection=projection[1]
+        
+        if distance_projection_old==0:
+            
+            distance_projection_old=distance_projection
+            
+        speed_projection=distance_projection-distance_projection_old
+        distance_projection_old=distance_projection
+#        print("distance_projection",distance_projection)
+#        print("speed_projection",speed_projection)
+#        print("projection",projection)  
 #        print("path_close_1",path_close_1)  
-        print("path_close_2",path_close_2)
-        print("draw_path[1]",draw_path[1])  
+#        print("path_close_2",path_close_2)
+#        print("draw_path[1]",draw_path[1])  
 #        print("draw_path[2]",draw_path[2])
 #        print("draw_path[3]",draw_path[3])
-#        cos_projection=cal.calculate_cos(swich_cal_projection)
+
 #        sin_projection=cal.calculate_sin()
-        print("path_tag",path_tag)
+#        print("path_tag",path_tag)
 #        print("tag length",len(path_tag))
-        print("path_tag2",path_tag_2)
+#        print("path_tag2",path_tag_2)
 #        print("tag2 length",len(path_tag_2))
-        dis_between_path=cal.calculate_r(path_close_1,path_close_2)
+
         
 #        print("dis_close_path_2",dis_close_path_2)  
 #        print("dis_close_path_1",dis_close_path_1)
@@ -1151,7 +1174,7 @@ while True:
         
         dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
         ##start drawing
-        car.speed=0.1
+#        car.speed=0.1
         if start_action==True:
             
             start_timer=True
@@ -1507,9 +1530,19 @@ while True:
             state[3]=np.vstack(state[0]).ravel()
             state[1]=np.vstack(vektor_speed).ravel()
             state[2]=angle
-            #state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))
-            state_input=np.hstack((state[1],state[2],state[3]))
-            #print (state_input)
+            state[1][0]=state[1][0]/car.maxspeed
+            state[1][1]=state[1][1]/car.maxspeed
+            state[2]=angle/half_Max_angle
+            
+            t=0
+            for s in state[3]:
+                state[3][t]=s/(CENTER[0]*2/5)
+                t=t+1
+                
+#            print ("state[3]",state[3])
+            #state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))                  
+            state_input=np.hstack((state[1],state[2],state[3]))      
+#            print (state_input)
             #print ('size:',state_input.size)
             for t in range(len(state_input)):
                 observation[t]=state_input[t]
@@ -1523,13 +1556,21 @@ while True:
         ##timer 
         #reward=distance_faktor*distance
         if start_action==True:
-            if math.sqrt(diff_sum_yb)>1:
+#            if math.sqrt(diff_sum_yb)>1:
+#                
+#                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(diff_sum_yb))
+#                
+#            else:
+#            
+#                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
+#                
+            if v_distance_projection>0.25:
                 
-                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(diff_sum_yb))
+                reward=speed_projection*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(v_distance_projection))
                 
             else:
             
-                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
+                reward=speed_projection*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/0.5)
             #reward=car.speed*speed_faktor+distance_faktor*distance
 
 #            if math.sqrt(diff_sum_yb)>1:
@@ -1594,10 +1635,10 @@ while True:
 #                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
 #                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
                 b_M = M.sample(BATCH_SIZE)
-                b_s = b_M[:, :input_max]
-                b_a = b_M[:, input_max: input_max + ACTION_DIM]
-                b_r = b_M[:, -input_max - 1: -input_max]
-                b_s_ = b_M[:, -input_max:]
+                b_s = b_M[:, :input_dim]
+                b_a = b_M[:, input_dim: input_dim + ACTION_DIM]
+                b_r = b_M[:, -input_dim - 1: -input_dim]
+                b_s_ = b_M[:, -input_dim:]
                 
                 #print("b_M:",b_M)
                 #print("b_s:",b_s)

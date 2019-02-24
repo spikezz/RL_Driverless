@@ -18,7 +18,7 @@ tm.sleep(3)
 
 client = airsim.CarClient()
 client.confirmConnection()
-#client.enableApiControl(True)
+client.enableApiControl(True)
 car_controls = airsim.CarControls()
 
 #print(client.simSpawnObject('/Game/test.test_C', airsim.Pose(position_val=airsim.Vector3r(10,10,-10))))
@@ -135,7 +135,7 @@ while not rospy.is_shutdown():
 	
 #	print(client.simGetObjectPoses("leftCone"))
 
-	car_controls.throttle = 0
+	car_controls.throttle = 0.5
 	car_controls.steering = 0
 	client.setCarControls(car_controls)
     

@@ -1256,10 +1256,10 @@ while True:
             state_input=np.hstack((state[1],state[2],state[3]))
             #print (state_input)
             #print ('size:',state_input.size)
-            SD_input=np.std(state_input)
-            MN_input=np.mean(state_input)
-            #z-score
-            state_input=(state_input-MN_input)/SD_input
+#            SD_input=np.std(state_input)
+#            MN_input=np.mean(state_input)
+#            #z-score
+#            state_input=(state_input-MN_input)/SD_input
             #z-score
             for t in range(len(state_input)):
                 observation[t]=state_input[t]

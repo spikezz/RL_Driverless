@@ -15,10 +15,27 @@ def calculate_r(point,CENTER):
     
     return R
 
-def calculate_cos(a):
-    projektion=0
-    
+def calculate_projection(switch,short,long,bottom):
+    projektion=[0,0]
+    if switch==True:
+#        angle=math.degrees(math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom)))
+        angle=math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom))
+#        print("angle",angle)
+        projektion[0]=short*math.cos(angle)
+        projektion[1]=short*math.sin(angle)
+#        print("projektion[1]",projektion[1])
+
+    else:
+#        angle=math.degrees(math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom)))
+        angle=math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom))
+#        print("angle",angle)
+        
+        projektion[0]=long*math.cos(angle)
+        projektion[1]=long*math.sin(angle)
+#        print("projektion[1]",projektion[1])
+#    short*math.cos(math.radians(angle))
     return projektion
+
 
 def calculate_sita(symbol180,point,CENTER):
     sita=0
