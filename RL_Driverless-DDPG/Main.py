@@ -32,7 +32,7 @@ tf.set_random_seed(1)
 #VAR_MIN = 0.1
 
 H1=180
-H2=10
+H2=180
 input_dim = 80
 #half_Max_angle=45
 #ACTION_DIM = 2
@@ -172,6 +172,7 @@ class Critic(object):
 
 
 class Memory(object):
+    
     def __init__(self, capacity, dims):
         self.capacity = capacity
         self.data = np.zeros((capacity, dims))
@@ -188,8 +189,34 @@ class Memory(object):
         assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
         indices = np.random.choice(self.capacity, size=n)
         return self.data[indices, :]
+    
+    def read(self,idx,punish_batch_size):
+        
+        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
+        idxs = np.zeros(punish_batch_size) 
+        i=0
+        for t in range(idx-punish_batch_size,idx):
+            idxs[i]=t
+#            print("idxs[t]",idxs[t])
+            i=i+1
+        idxs=idxs.astype(int)
+#        print("idxs",idxs)
+        return self.data[idxs, :]
+    def write(self,idx,punish_batch_size,punished_reward):
+        
+        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
+        
+        idxs = np.zeros(punish_batch_size) 
+        i=0
+        for t in range(idx-punish_batch_size,idx):
+            idxs[i]=t
+#            print("idxs[t]",idxs[t])
+            i=i+1
+        idxs=idxs.astype(int)
+        
+        self.data[idxs, -input_dim - 1]=punished_reward
 
-
+        return 1
 #initial stuff
 pygame.init()
 screen = pygame.display.set_mode((1360,768),0)
@@ -253,10 +280,10 @@ player_s.add(car)
 #cone
 coneb=traffic_cone.cone(CENTER[0],CENTER[1]-half_path_wide,-1,car.x,car.y)
 coney=traffic_cone.cone(CENTER[0],CENTER[1]+half_path_wide,1,car.x,car.y)
-coneback=traffic_cone.cone(CENTER[0]+half_path_wide/2,CENTER[1],-1,car.x,car.y)
+#coneback=traffic_cone.cone(CENTER[0]+half_path_wide/2,CENTER[1],-1,car.x,car.y)
 cone_s.add(coneb)
 cone_s.add(coney)
-cone_h.add(coneback)
+#cone_h.add(coneback)
 list_cone_blue.append(coneb)
 list_cone_yellow.append(coney)
 #cone
@@ -363,7 +390,7 @@ dis_yellow=[]
 dis_blue=[]
 #absolute value of distance from blue cone
 #absolute value of distance from back cone
-dis_back=0
+#dis_back=0
 #absolute value of distance from back cone
 #input data form of RL algorithm of blue cone
 vektor_blue=[]
@@ -378,7 +405,7 @@ dis_blue_sqr_sum=0
 dis_yellow_sqr_sum=0
 #sum of square of yellow cone
 #positive deviation
-diff_sum_yb=0
+#diff_sum_yb=0
 #positive deviation
 ##constant for cone
 
@@ -470,6 +497,10 @@ safty_distance_impact=60
 #minimum distance before impact
 #minimum distance before turning
 safty_distance_turning=65
+punish_turning=False
+idx_punish=0
+punished_reward=0
+punish_batch_size=3
 #minimum distance before turning
 #distance which means impact
 collision_distance=40
@@ -535,9 +566,9 @@ REPLACE_ITER_A = 1100
 #after this learning number of main net update the target net of Critic
 REPLACE_ITER_C = 1000
 #after this learning number of main net update the target net of Critic
-#occupyed memory
+#occupied memory
 MEMORY_CAPACITY = 500
-#occupyed memory
+#occupied memory
 #size of memory slice
 BATCH_SIZE = 2000
 #size of memory slice
@@ -545,8 +576,8 @@ BATCH_SIZE = 2000
 VAR_MIN = 0.1
 #minimal exploration wide of action
 #initial exploration wide of action
-var1 = 0.99
-var2 = 0.99
+var1 = 1
+var2 = 1
 #initial exploration wide of action
 #dimension of action
 ACTION_DIM = 2
@@ -685,7 +716,7 @@ for pa in path_man:
     j=j+1
 # =============================================================================
 ##
-
+#
 
 sess = tf.Session()
 
@@ -696,8 +727,8 @@ actor.add_grad_to_graph(critic.a_grads)
 M = Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
 saver = tf.train.Saver()
 
-#LOAD = False
-LOAD = True
+LOAD = False
+#LOAD = True
 MODE = ['online', 'cycle']
 n_model = 0
 
@@ -1151,6 +1182,14 @@ while True:
             distance_projection_old=distance_projection
             
         speed_projection=distance_projection-distance_projection_old
+        
+        if speed_projection<0:
+            speed_projection=-speed_projection
+#            print("dis_between_path-(distance_projection-base_path_mileage):",dis_between_path-(distance_projection-base_path_mileage))
+#            print("dis_between_path-(distance_projection_old-base_path_mileage):",dis_between_path-(distance_projection_old-base_path_mileage))
+#            print("speed_projection:",speed_projection)
+#            print("distance_projection:",distance_projection)
+#            print("distance_projection_old:",distance_projection_old)
         distance_projection_old=distance_projection
 #        print("distance_projection",distance_projection)
 #        print("speed_projection",speed_projection)
@@ -1172,7 +1211,7 @@ while True:
 #        print("dis_close_path_1",dis_close_path_1)
 #        print("dis_between_path",dis_between_path)
         
-        dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
+#        dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
         ##start drawing
 #        car.speed=0.1
         if start_action==True:
@@ -1238,6 +1277,8 @@ while True:
             
                 if dis_blue[i]<safty_distance_turning:
                     
+                    punish_turning=True
+                    
                     if dis_blue[i]<safty_distance_impact:
                         
                         angle=half_Max_angle
@@ -1260,6 +1301,8 @@ while True:
             for i in range (0, p+1):
             
                 if dis_yellow[i]<safty_distance_turning:
+                    
+                    punish_turning=True
                     
                     if dis_yellow[i]<safty_distance_impact:
                         
@@ -1507,7 +1550,7 @@ while True:
         k=len(vektor_blue_temp)
         l=len(vektor_yellow_temp)
         if k>0 and l>0:
-            diff_sum_yb=math.sqrt(pow((math.sqrt(dis_blue_sqr_sum/k)-math.sqrt(dis_yellow_sqr_sum/l)),2))
+#            diff_sum_yb=math.sqrt(pow((math.sqrt(dis_blue_sqr_sum/k)-math.sqrt(dis_yellow_sqr_sum/l)),2))
             #print("diff:",diff_sum_yb)
             state_sort=np.vstack((np.vstack(vektor_blue_temp),np.vstack(vektor_yellow_temp)))
             state_sort_temp=[]
@@ -1564,13 +1607,19 @@ while True:
 #            
 #                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
 #                
-            if v_distance_projection>0.25:
+            if v_distance_projection>0.5:
                 
-                reward=speed_projection*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/math.sqrt(v_distance_projection))
+                reward=speed_projection*speed_faktor+(5*car.maxspeed/v_distance_projection)
                 
             else:
             
-                reward=speed_projection*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/0.5)
+                reward=speed_projection*speed_faktor+(5*car.maxspeed/0.5)
+#            print("(5*car.maxspeed)/pow(v_distance_projection,1):",(5*car.maxspeed)/pow(v_distance_projection,1))
+#            print("speed_projection:",speed_projection)
+#            if reward<0:
+#                
+#                print("reward:",reward)
+#                print("speed_projection:",speed_projection)
             #reward=car.speed*speed_faktor+distance_faktor*distance
 
 #            if math.sqrt(diff_sum_yb)>1:
@@ -1596,15 +1645,28 @@ while True:
                     
                     collide=True
                     
-            if dis_back<collision_distance*1.5:
+#            if dis_back<collision_distance*1.5:
                 
-                collide=True
+#                collide=True
                 
             if collide==True or count/COUNT_FREQUENZ>1.5: 
             #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 if collide==True :
                     
                     reward=-pow(car.speed,3)
+                    if M.pointer > MEMORY_CAPACITY:
+                        
+                        idx_punish = M.pointer % M.capacity
+                        punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+    #                    print("punished_reward",punished_reward)
+#                        punished_reward =-5*car.maxspeed/punished_reward
+                        punished_reward =-2*punished_reward
+        #                print("punished_reward_new",punished_reward)
+                        M.write(idx_punish,2*punish_batch_size,punished_reward)
+                        punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+        #                print("punished_reward_new",punished_reward)
+
+                    
                 car.impact()
                 car.reset()
                 car.set_start_direction(90)
@@ -1625,9 +1687,24 @@ while True:
                 count=0
                 collide=False
                 summary=True
-    
+#            print("reward:",reward)
             #RL.store_transition(observation, action, reward)
+            
+            if M.pointer > MEMORY_CAPACITY and punish_turning==True:
+                
+                idx_punish = M.pointer % M.capacity
+                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+#                print("punished_reward",punished_reward)
+#                punished_reward =-2*car.maxspeed/punished_reward
+                punished_reward =-punished_reward
+#                print("punished_reward_new",punished_reward)
+                M.write(idx_punish,punish_batch_size,punished_reward)
+                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+#                print("punished_reward_new",punished_reward)
+                punish_turning=False
+#            print("idx_punish:",idx_punish)
             M.store_transition(observation_old, action, reward, observation)
+            
             #print("MEMORY_CAPACITY:",M.pointer)
             if M.pointer > MEMORY_CAPACITY:
                 var1 = max([var1*0.9999, VAR_MIN])    # decay the action randomness
@@ -1635,16 +1712,17 @@ while True:
 #                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
 #                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
                 b_M = M.sample(BATCH_SIZE)
+#                print("BATCH_SIZE:",BATCH_SIZE)
                 b_s = b_M[:, :input_dim]
                 b_a = b_M[:, input_dim: input_dim + ACTION_DIM]
                 b_r = b_M[:, -input_dim - 1: -input_dim]
                 b_s_ = b_M[:, -input_dim:]
                 
-                #print("b_M:",b_M)
-                #print("b_s:",b_s)
-                #print("b_a:",b_a)
-                #print("b_r:",b_r)
-                #print("b_s_:",b_s_)
+#                print("b_M:",b_M)
+#                print("b_s:",b_s)
+#                print("b_a:",b_a)
+#                print("b_r:",b_r)
+#                print("b_s_:",b_s_)
 #
                 critic.learn(b_s, b_a, b_r, b_s_)
                 actor.learn(b_s)
@@ -1664,6 +1742,7 @@ while True:
     else:
         print("var1:",var1,"var2:",var2)
         print("MEMORY_CAPACITY:",M.pointer)
+        print("MEMORY_CAPACITY:",M.capacity)
         if os.path.isdir(di): shutil.rmtree(di)
         os.mkdir(di)
         ckpt_path = os.path.join('./'+MODE[n_model], 'DDPG.ckpt')

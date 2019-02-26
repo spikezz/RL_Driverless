@@ -109,6 +109,7 @@ angle=0
 
 ###initial Model of the car
 ##specification const of the car
+half_Max_angle=45
 half_middle_axis_length=20
 half_horizontal_axis_length=17
 radius_of_wheel=10
@@ -324,7 +325,7 @@ vt=0
 start_action=False
 #learning start
 #Rendering start
-Render=False
+Render=True
 #Rendering star
 #max input data
 input_max=70
@@ -628,7 +629,7 @@ while True:
         ##system event
         for event in pygame.event.get():
             #print("event.type",dir(pygame.event))
-            print("event",event)
+#            print("event",event)
             # quit for windows
             if event.type == QUIT:
                         
@@ -1252,6 +1253,14 @@ while True:
             state[3]=np.vstack(state[0]).ravel()
             state[1]=np.vstack(vektor_speed).ravel()
             state[2]=angle
+            state[1][0]=state[1][0]/car.maxspeed
+            state[1][1]=state[1][1]/car.maxspeed
+            state[2]=angle/half_Max_angle
+            
+            t=0
+            for s in state[3]:
+                state[3][t]=s/(CENTER[0]*2/5)
+                t=t+1
             #state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))
             state_input=np.hstack((state[1],state[2],state[3]))
             #print (state_input)

@@ -18,7 +18,7 @@ tm.sleep(3)
 
 client = airsim.CarClient()
 client.confirmConnection()
-client.enableApiControl(True)
+#client.enableApiControl(True)
 car_controls = airsim.CarControls()
 
 #print(client.simSpawnObject('/Game/test.test_C', airsim.Pose(position_val=airsim.Vector3r(10,10,-10))))
@@ -45,7 +45,14 @@ init_v_z=car_state.kinematics_estimated.linear_velocity.z_val
 bound_lidar=10
 #constant of distance measure
 
-auto_spawn=True
+#create the Group contains yellow cone
+list_cone_yellow=0
+#create the Group contains yellow cone
+#create the Group contains blue cone
+list_cone_blue=0
+#create the Group contains blue cone
+
+auto_spawn=False
 
 if auto_spawn==True:
     
@@ -53,12 +60,6 @@ if auto_spawn==True:
     half_path_wide=2.5
     delta_path=5
     ##constant of path
-    #create the Group contains yellow cone
-    list_cone_yellow=[]
-    #create the Group contains yellow cone
-    #create the Group contains blue cone
-    list_cone_blue=[]
-    #create the Group contains blue cone
     #create the Group contains track mittle point
     list_path_point=[]
     #create the Group contains track mittle point
@@ -133,73 +134,86 @@ if auto_spawn==True:
 #print(list_blue_cone[0].position.x_val)
 while not rospy.is_shutdown():
 	
-#	print(client.simGetObjectPoses("leftCone"))
+#	print("cone 0:",client.simGetObjectPoses("leftCone")[0].position)
 
-	car_controls.throttle = 0.5
-	car_controls.steering = 0
-	client.setCarControls(car_controls)
-    
+    car_controls.throttle = 0.5
+    car_controls.steering = 0
+    client.setCarControls(car_controls)
+
 #    list_yellow_cone=client.simGetObjectPoses("LeftCone")
 #    list_blue_cone=client.simGetObjectPoses("RightCone")
 #    
-	responses = client.simGetImages([ImageRequest("0", airsim.ImageType.Scene, False, False)])
-	response = responses[0]
+    responses = client.simGetImages([ImageRequest("0", airsim.ImageType.Scene, False, False)])
+    response = responses[0]
 
-	img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)
-	try:
-		img_rgba = img1d.reshape(response.height, response.width, 4)
-		img_rgba = np.flipud(img_rgba)
-		airsim.write_png(os.path.normpath('greener.png'), img_rgba) 
-		img_rgba = np.flipud(img_rgba)	
-		image_msg = Image()
-		image_msg.height = img_rgba.shape[0];
-		image_msg.width =  img_rgba.shape[1];
-		image_msg.encoding = 'rgba8';
-		image_msg.step = img_rgba.shape[0]*img_rgba.shape[1]*4
-		image_msg.data = img_rgba.tobytes();
-	except:
-		print("Image acquisition failed")
+    img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)
+    try:
+        img_rgba = img1d.reshape(response.height, response.width, 4)
+        img_rgba = np.flipud(img_rgba)
+        airsim.write_png(os.path.normpath('greener.png'), img_rgba) 
+        img_rgba = np.flipud(img_rgba)	
+        image_msg = Image()
+        image_msg.height = img_rgba.shape[0];
+        image_msg.width =  img_rgba.shape[1];
+        image_msg.encoding = 'rgba8';
+        image_msg.step = img_rgba.shape[0]*img_rgba.shape[1]*4
+        image_msg.data = img_rgba.tobytes();
+    except:
+        print("Image acquisition failed")
 
 	#print(image_msg)
 
-	acc_msg=Vector3()
-	vel_msg=Vector3()
-	pos_msg=Vector3()
-	ort_msg=Float32MultiArray()
-	act_msg=Float32MultiArray()
-
-	car_state = client.getCarState()
-
-	acc_msg.x=car_state.kinematics_estimated.linear_acceleration.x_val
-	acc_msg.y=car_state.kinematics_estimated.linear_acceleration.y_val
-	acc_msg.z=car_state.kinematics_estimated.linear_acceleration.z_val
-
-	vel_msg.x=car_state.kinematics_estimated.linear_velocity.x_val-init_v_x
-	vel_msg.y=car_state.kinematics_estimated.linear_velocity.y_val-init_v_y
-	vel_msg.z=car_state.kinematics_estimated.linear_velocity.z_val-init_v_z
-
-
-	pos_msg.x=car_state.kinematics_estimated.position.x_val
-	pos_msg.y=car_state.kinematics_estimated.position.y_val
-	pos_msg.z=car_state.kinematics_estimated.position.z_val
-
-	ort_msg.data.append(car_state.kinematics_estimated.orientation.w_val)
-	ort_msg.data.append(car_state.kinematics_estimated.orientation.x_val)
-	ort_msg.data.append(car_state.kinematics_estimated.orientation.y_val)
-	ort_msg.data.append(car_state.kinematics_estimated.orientation.z_val)
-
-	act_msg.data.append(car_controls.throttle)
-	act_msg.data.append(car_controls.steering)
-
+    acc_msg=Vector3()
+    vel_msg=Vector3()
+    pos_msg=Vector3()
+    ort_msg=Float32MultiArray()
+    act_msg=Float32MultiArray()
+    
+    car_state = client.getCarState()
+    acc_msg.x=car_state.kinematics_estimated.linear_acceleration.x_val
+    acc_msg.y=car_state.kinematics_estimated.linear_acceleration.y_val
+    acc_msg.z=car_state.kinematics_estimated.linear_acceleration.z_val
+    
+    vel_msg.x=car_state.kinematics_estimated.linear_velocity.x_val-init_v_x
+    vel_msg.y=car_state.kinematics_estimated.linear_velocity.y_val-init_v_y
+    vel_msg.z=car_state.kinematics_estimated.linear_velocity.z_val-init_v_z
+    
+    pos_msg.x=car_state.kinematics_estimated.position.x_val
+    pos_msg.y=car_state.kinematics_estimated.position.y_val
+    pos_msg.z=car_state.kinematics_estimated.position.z_val
+    
+    ort_msg.data.append(car_state.kinematics_estimated.orientation.w_val)
+    ort_msg.data.append(car_state.kinematics_estimated.orientation.x_val)
+    ort_msg.data.append(car_state.kinematics_estimated.orientation.y_val)
+    ort_msg.data.append(car_state.kinematics_estimated.orientation.z_val)
+    
+    act_msg.data.append(car_controls.throttle)
+    act_msg.data.append(car_controls.steering)
+    
+    
+    list_blue_cone=client.simGetObjectPoses("LeftCone")
+    list_cone_yellow=client.simGetObjectPoses("RightCone")
+    
+    for c in list_blue_cone:
+        
+        print("list_blue_cone:",c.position)
+    
+    for c in list_cone_yellow:
+        
+        print("list_cone_yellow:",c.position)
+    
+    
 	#print(car_state)
 	#print(vel_msg)
 	#print(pos_msg)
 	#print(ort_msg)
 	#print(car_state.kinematics_estimated.linear_velocity)
 	#print(car_state.kinematics_estimated.orientation)
-    #print(speed,gear)
+#print(speed,gear)
 	#print(client.simGetGroundTruthEnvironment())
 	#print(client.simGetGroundTruthKinematics())
+#client.simGetObjectPoses("leftCone")[0].position
+#    list_blue_cone=client.simGetObjectPoses("leftCone")
 
 #    for cone_blue in list_blue_cone:
 #        coordinate_cone=[]
@@ -217,22 +231,14 @@ while not rospy.is_shutdown():
 #
 #
 
-
-
-
-
-
-
-
-
-	pub_I.publish(image_msg)
-	pub_A.publish(acc_msg)
-	pub_V.publish(vel_msg)
-	pub_P.publish(pos_msg)
-	pub_O.publish(ort_msg)
-	pub_a.publish(act_msg)
-	
-	rate.sleep()
+    pub_I.publish(image_msg)
+    pub_A.publish(acc_msg)
+    pub_V.publish(vel_msg)
+    pub_P.publish(pos_msg)
+    pub_O.publish(ort_msg)
+    pub_a.publish(act_msg)
+    	
+    rate.sleep()
 
    
 

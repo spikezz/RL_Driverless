@@ -84,7 +84,7 @@ class Player(pygame.sprite.Sprite):
         self.speed = 0.0
         self.maxspeed = 5
         self.minspeed = -0.5
-        self.acceleration = 0.6
+        self.acceleration = 0.5
         self.deacceleration = 1.5
         self.softening = 0.04
         self.steering = 1.60
@@ -112,6 +112,8 @@ class Player(pygame.sprite.Sprite):
         self.y = CENTER_Y
         self.rect.topleft = self.x-17, self.y-33#middle of the car
         self.x, self.y = findspawn()
+        self.x=self.x-220
+        self.y=self.y-15
         self.dir = 0
         
         self.speed = 0.0
