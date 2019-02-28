@@ -10,12 +10,10 @@ import player,maps,tracks,camera,traffic_cone , path
 import canvas as cv
 import calculation as cal
 import numpy as np
-import pickle as pk
 import matplotlib.pyplot as plt
 import os
 import shutil
 from loader import load_image
-from operator import itemgetter, attrgetter
 from pygame.locals import *
 
 np.random.seed(1)
@@ -196,6 +194,7 @@ class Memory(object):
         idxs = np.zeros(punish_batch_size) 
         i=0
         for t in range(idx-punish_batch_size,idx):
+            
             idxs[i]=t
 #            print("idxs[t]",idxs[t])
             i=i+1
@@ -216,7 +215,7 @@ class Memory(object):
         
         self.data[idxs, -input_dim - 1]=punished_reward
 
-        return 1
+        
 #initial stuff
 pygame.init()
 screen = pygame.display.set_mode((1360,768),0)
@@ -426,6 +425,7 @@ j=0
 path_x=0
 path_y=0
 #temporary path coordinate for mouse and auto path build
+path_mirror=1
 ctrl_pressed=False
 #lidar effective distance
 dis_path=0
@@ -485,7 +485,7 @@ summary=False
 ep_lr=0
 #episode after max reward updated
 #weight for the speed in reward
-speed_faktor=1
+speed_faktor=10
 #weight for the speed in reward
 #speed_faktor_enhance=1
 #angle_faktor_enhance=1
@@ -520,9 +520,6 @@ distance_set=[]
 #reward of the current state and action
 reward=1
 #reward of the current state and action
-#show reward for the last episode
-reward_show=0
-#show reward for the last episode
 #temporary reward of the whole episode 
 reward_sum=0
 #temporary reward of the whole episode 
@@ -567,10 +564,10 @@ REPLACE_ITER_A = 1100
 REPLACE_ITER_C = 1000
 #after this learning number of main net update the target net of Critic
 #occupied memory
-MEMORY_CAPACITY = 500
+MEMORY_CAPACITY = 1000
 #occupied memory
 #size of memory slice
-BATCH_SIZE = 2000
+BATCH_SIZE = 4000
 #size of memory slice
 #minimal exploration wide of action
 VAR_MIN = 0.1
@@ -578,6 +575,8 @@ VAR_MIN = 0.1
 #initial exploration wide of action
 var1 = 1
 var2 = 1
+#var1 = 0.1
+#var2 = 0.1
 #initial exploration wide of action
 #dimension of action
 ACTION_DIM = 2
@@ -625,28 +624,28 @@ corner.append(48)
 corner.append(49)
 corner.append(54)
 for t in range (1,corner[0]):
-    path_man.append([CENTER[0]-49*t,CENTER[1]-3*t])
+    path_man.append([CENTER[0]-49*t,path_mirror*(CENTER[1]-3*t)])
 
 for t in range (1,5):
-    path_man.append([path_man[corner[0]-2][0]-49.74*t,path_man[corner[0]-2][1]-5*t])
+    path_man.append([path_man[corner[0]-2][0]-49.74*t,path_mirror*(path_man[corner[0]-2][1]-5*t)])
     
 for t in range (1,6):
-    path_man.append([path_man[corner[1]-2][0]-49*t,path_man[corner[1]-2][1]-10*t])
+    path_man.append([path_man[corner[1]-2][0]-49*t,path_mirror*(path_man[corner[1]-2][1]-10*t)])
 
 for t in range (1,3):
-    path_man.append([path_man[corner[2]-2][0]-45.82*t,path_man[corner[2]-2][1]-20*t])
+    path_man.append([path_man[corner[2]-2][0]-45.82*t,path_mirror*(path_man[corner[2]-2][1]-20*t)])
 
-path_man.append([path_man[corner[3]-2][0]-40,path_man[corner[3]-2][1]-30])
-path_man.append([path_man[corner[4]-2][0]-31,path_man[corner[4]-2][1]-39.23])
-path_man.append([path_man[corner[5]-2][0]-19.6,path_man[corner[5]-2][1]-46])
-path_man.append([path_man[corner[6]-2][0]+15,path_man[corner[6]-2][1]-47.7])
-path_man.append([path_man[corner[7]-2][0]+30,path_man[corner[7]-2][1]-40])
-path_man.append([path_man[corner[8]-2][0]+35,path_man[corner[8]-2][1]-35.71])
+path_man.append([path_man[corner[3]-2][0]-40,path_mirror*(path_man[corner[3]-2][1]-30)])
+path_man.append([path_man[corner[4]-2][0]-31,path_mirror*(path_man[corner[4]-2][1]-39.23)])
+path_man.append([path_man[corner[5]-2][0]-19.6,path_mirror*(path_man[corner[5]-2][1]-46)])
+path_man.append([path_man[corner[6]-2][0]+15,path_mirror*(path_man[corner[6]-2][1]-47.7)])
+path_man.append([path_man[corner[7]-2][0]+30,path_mirror*(path_man[corner[7]-2][1]-40)])
+path_man.append([path_man[corner[8]-2][0]+35,path_mirror*(path_man[corner[8]-2][1]-35.71)])
 for t in range (1,6):
-    path_man.append([path_man[corner[9]-2][0]+43.5*t,path_man[corner[9]-2][1]-24.65*t])
+    path_man.append([path_man[corner[9]-2][0]+43.5*t,path_mirror*(path_man[corner[9]-2][1]-24.65*t)])
     
 for t in range (1,23):
-    path_man.append([path_man[corner[10]-2][0]+47.37*t,path_man[corner[10]-2][1]-16*t])
+    path_man.append([path_man[corner[10]-2][0]+47.37*t,path_mirror*(path_man[corner[10]-2][1]-16*t)])
     
 
 #for t in range (1,5):
@@ -727,8 +726,8 @@ actor.add_grad_to_graph(critic.a_grads)
 M = Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
 saver = tf.train.Saver()
 
-LOAD = False
-#LOAD = True
+#LOAD = False
+LOAD = True
 MODE = ['online', 'cycle']
 n_model = 0
 
@@ -1129,7 +1128,7 @@ while True:
                 path_close_1=draw_path[i]
                 dis_close_path_1=dis_close_path_temp
                 tag=i
-        
+            
         dis_close_path_2=1000
        
         for i in range (0, j+1):
@@ -1155,12 +1154,15 @@ while True:
             
         dis_between_path=cal.calculate_r(path_close_1,path_close_2)
         
+        
+            
         if tag!=path_tag[ta]:
             
             path_tag.append(tag)
             ta=ta+1
             swich_cal_projection=False
 #            print("ta",ta) 
+
         if tag_2!=path_tag_2[ta_2]:
             
             path_tag_2.append(tag_2)
@@ -1168,22 +1170,115 @@ while True:
                 swich_cal_projection=True 
                 base_path_mileage=dis_between_path*ta
             ta_2=ta_2+1
-#            print("ta_2",ta_2) 
             
-        
-        
+        elif count==0:
+            
+            base_path_mileage=0
+
 #        print("dis_between_path",dis_between_path)
         projection=cal.calculate_projection(swich_cal_projection,dis_close_path_1,dis_close_path_2,dis_between_path)
+        projektion=[0,0]
+
         distance_projection=base_path_mileage+projection[0]
         v_distance_projection=projection[1]
-        
-        if distance_projection_old==0:
+#        print("count:",count)
+        if count==0:
             
             distance_projection_old=distance_projection
-            
+
         speed_projection=distance_projection-distance_projection_old
+#        print("speed_projection:",speed_projection)
         
+#        if tag==31:
+#            print("speed_projection:",speed_projection)
+#            print("count:",count)
+#            print("path_tag:",path_tag)
+#            
+#            if swich_cal_projection==True:
+#    #        angle=math.degrees(math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom)))
+#                angle_test=math.acos((pow(dis_close_path_1,2)+pow(dis_between_path,2)-pow(dis_close_path_2,2))/(2*dis_close_path_1*dis_between_path))
+#                print("angle_test_short",angle_test)
+#                projektion[0]=dis_close_path_1*math.cos(angle_test)
+#                projektion[1]=dis_close_path_1*math.sin(angle_test)
+#                print("dis_close_path_1",dis_close_path_1)
+#                print("dis_close_path_2",dis_close_path_2)
+#                print("dis_between_path",dis_between_path)
+#                print("projektion[0]",projektion[0])
+#                print("projektion[1]",projektion[1])
+#                print("base_path_mileage:",base_path_mileage)
+#                print("distance_projection:",distance_projection)
+#                print("distance_projection_old:",distance_projection_old)
+#
+#        
+#            else:
+#        #        angle=math.degrees(math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom)))
+#                angle_test=math.acos((pow(dis_close_path_2,2)+pow(dis_between_path,2)-pow(dis_close_path_1,2))/(2*dis_close_path_2*dis_between_path))
+#                print("angle_test_long",angle_test)
+#                
+#                projektion[0]=dis_close_path_2*math.cos(angle_test)
+#                projektion[1]=dis_close_path_2*math.sin(angle_test)
+#                print("dis_close_path_1",dis_close_path_1)
+#                print("dis_close_path_2",dis_close_path_2)
+#                print("dis_between_path",dis_between_path)
+#                print("projektion[0]",projektion[0])
+#                print("projektion[1]",projektion[1])
+#                print("base_path_mileage:",base_path_mileage)
+#                print("distance_projection:",distance_projection)
+#                print("distance_projection_old:",distance_projection_old)
+        if speed_projection>car.maxspeed:
+#            print("speed_projection:",speed_projection)
+            speed_projection=car.maxspeed
+#            print("count:",count)
+#            print("path_tag:",path_tag)
+#            
+#            
+#            if swich_cal_projection==True:
+#    #        angle=math.degrees(math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom)))
+#                angle_test=math.acos((pow(dis_close_path_1,2)+pow(dis_between_path,2)-pow(dis_close_path_2,2))/(2*dis_close_path_1*dis_between_path))
+#                print("angle_test_short",angle_test)
+#                projektion[0]=dis_close_path_1*math.cos(angle_test)
+#                projektion[1]=dis_close_path_1*math.sin(angle_test)
+#                print("dis_close_path_1",dis_close_path_1)
+#                print("dis_close_path_2",dis_close_path_2)
+#                print("dis_between_path",dis_between_path)
+#                print("projektion[0]",projektion[0])
+#                print("projektion[1]",projektion[1])
+#                print("base_path_mileage:",base_path_mileage)
+#                print("distance_projection:",distance_projection)
+#                print("distance_projection_old:",distance_projection_old)
+#                if speed_projection>10:
+#                    while 1:
+#                        
+#                        pass
+#        
+#            else:
+#        #        angle=math.degrees(math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom)))
+#                angle_test=math.acos((pow(dis_close_path_2,2)+pow(dis_between_path,2)-pow(dis_close_path_1,2))/(2*dis_close_path_2*dis_between_path))
+#                print("angle_test_long",angle_test)
+#                
+#                projektion[0]=dis_close_path_2*math.cos(angle_test)
+#                projektion[1]=dis_close_path_2*math.sin(angle_test)
+#                print("dis_close_path_1",dis_close_path_1)
+#                print("dis_close_path_2",dis_close_path_2)
+#                print("dis_between_path",dis_between_path)
+#                print("projektion[0]",projektion[0])
+#                print("projektion[1]",projektion[1])
+#                print("base_path_mileage:",base_path_mileage)
+#                print("distance_projection:",distance_projection)
+#                print("distance_projection_old:",distance_projection_old)
+#                if speed_projection>10:
+#                    while 1:
+#                        
+#                        pass
+#            print("path_tag:",path_tag)
+#            print("path_tag_2:",path_tag_2)
+#            print("speed_projection:",speed_projection)
+#            print("distance_projection:",distance_projection)
+#            print("distance_projection_old:",distance_projection_old)
+#            print("base_path_mileage:",base_path_mileage)
+            
         if speed_projection<0:
+            
             speed_projection=-speed_projection
 #            print("dis_between_path-(distance_projection-base_path_mileage):",dis_between_path-(distance_projection-base_path_mileage))
 #            print("dis_between_path-(distance_projection_old-base_path_mileage):",dis_between_path-(distance_projection_old-base_path_mileage))
@@ -1398,7 +1493,7 @@ while True:
         text_show1= font.render('distance: ' + str(round(float(distance),2)), 1, (0, 0, 102))   
         textpos_show1 = text_dir.get_rect(centery=545, left=20)
         
-        text_show2= font.render('reward: ' + str(round(float(reward_show),2)), 1, (0, 0, 102))   
+        text_show2= font.render('reward: ' + str(round(float(running_reward),2)), 1, (0, 0, 102))   
         textpos_show2 = text_dir.get_rect(centery=585, left=20)
         #anything want to show
         
@@ -1425,7 +1520,7 @@ while True:
         canvas.fill((255, 255, 255,0))
         ##
         
-        ##draw lines to find center of the car
+        ##draw lines to find center of the car2378.525163
         pygame.draw.line(canvas, (0,100,0), (100,CENTER[1]), (CENTER[0],CENTER[1]),2)
         pygame.draw.line(canvas, (0,100,0), (CENTER[0],100), (CENTER[0],CENTER[1]),2)
         ##draw lines to find center of the car
@@ -1504,6 +1599,7 @@ while True:
         
         ##show text
         if Render==True:
+            
             screen.blit(text_fps, textpos_fps)
             screen.blit(text_timer, textpos_timer)
             screen.blit(text_loop, textpos_loop)
@@ -1530,7 +1626,8 @@ while True:
         #vektor_yellow Within radar range
         vektor_yellow_temp=[]
         #vektor_yellow Within radar range
-        
+#        for v in vektor_blue[i]
+#        
         for i in range (0, q+1):
             
             if dis_blue[i]<bound_lidar:
@@ -1576,6 +1673,8 @@ while True:
             state[1][0]=state[1][0]/car.maxspeed
             state[1][1]=state[1][1]/car.maxspeed
             state[2]=angle/half_Max_angle
+#            print("len 1:",len(state[1]))
+#            print("len 0:",input_dim-len(state[1])-1-len(state[3]))
             
             t=0
             for s in state[3]:
@@ -1584,14 +1683,17 @@ while True:
                 
 #            print ("state[3]",state[3])
             #state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))                  
-            state_input=np.hstack((state[1],state[2],state[3]))      
+            state_input=np.hstack((state[1],state[2]))      
 #            print (state_input)
             #print ('size:',state_input.size)
-            for t in range(len(state_input)):
+            
+            for t in range(0,len(state[3])):
+                observation[t]=state[3][t]
+                
+            for t in range(-len(state_input),0):
                 observation[t]=state_input[t]
-    
         #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')      
-        
+#            print("observation:",observation)
         ##timer 
         if start_timer==True:
     
@@ -1607,15 +1709,17 @@ while True:
 #            
 #                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
 #                
-            if v_distance_projection>0.5:
+            if v_distance_projection>4:
                 
-                reward=speed_projection*speed_faktor+(5*car.maxspeed/v_distance_projection)
+                reward=speed_projection*speed_faktor+4*(car.maxspeed/car.acceleration)/v_distance_projection
                 
             else:
             
-                reward=speed_projection*speed_faktor+(5*car.maxspeed/0.5)
+                reward=speed_projection*speed_faktor+4*(car.maxspeed/car.acceleration)/4
+            
+#            reward=speed_projection*speed_faktor
 #            print("(5*car.maxspeed)/pow(v_distance_projection,1):",(5*car.maxspeed)/pow(v_distance_projection,1))
-#            print("speed_projection:",speed_projection)
+
 #            if reward<0:
 #                
 #                print("reward:",reward)
@@ -1631,7 +1735,7 @@ while True:
 #                reward=
             #reward=car.speed*speed_faktor+distance_faktor*distance
             
-            reward_sum=reward_sum+reward
+            
 
             for i in range (0, q+1):
             
@@ -1648,7 +1752,26 @@ while True:
 #            if dis_back<collision_distance*1.5:
                 
 #                collide=True
-                
+            if M.pointer > MEMORY_CAPACITY and punish_turning==True:
+#                reward=-math.sqrt(reward**2)
+                idx_punish = M.pointer % M.capacity
+                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+                for t in range(0,len(punished_reward)):
+                    
+                    if punished_reward[t]>0:
+                        
+                        reward_sum=reward_sum-2*math.sqrt(punished_reward[t]**2)
+                        punished_reward[t]=punished_reward[t]-2*math.sqrt(punished_reward[t]**2)
+#                print("punished_reward",punished_reward)
+#                punished_reward =-2*car.maxspeed/punished_reward
+#                print("punished_reward_new",punished_reward)
+                M.write(idx_punish,punish_batch_size,punished_reward)
+                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+#                print("punished_reward_new",punished_reward)
+                punish_turning=False
+#            print("idx_punish:",idx_punish)   
+            reward_sum=reward_sum+reward
+#            print("reward_sum:",reward_sum)    
             if collide==True or count/COUNT_FREQUENZ>1.5: 
             #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
                 if collide==True :
@@ -1658,14 +1781,18 @@ while True:
                         
                         idx_punish = M.pointer % M.capacity
                         punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
-    #                    print("punished_reward",punished_reward)
-#                        punished_reward =-5*car.maxspeed/punished_reward
-                        punished_reward =-2*punished_reward
+                        for t in range(0,len(punished_reward)):
+                            
+                            if punished_reward[t]>0:
+                                
+                                reward_sum=reward_sum-math.sqrt(punished_reward[t]**2)
+                                punished_reward[t]=punished_reward[t]-math.sqrt(punished_reward[t]**2)
+
         #                print("punished_reward_new",punished_reward)
                         M.write(idx_punish,2*punish_batch_size,punished_reward)
                         punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
         #                print("punished_reward_new",punished_reward)
-
+                    
                     
                 car.impact()
                 car.reset()
@@ -1673,7 +1800,7 @@ while True:
 
                 #print("neg_reward:",reward)
                 reward_sum=reward_sum+reward
-                reward_show=reward_sum
+                running_reward=reward_sum
                 #print("reward:",reward)
                 #print("episode:",episode)
                 
@@ -1683,6 +1810,10 @@ while True:
                 dis_yellow_sqr_sum=0
                 distance_set.append(distance)
                 distance=0
+                path_tag=[]
+                path_tag_2=[]
+                ta=0
+                ta_2=0
                 angle=0
                 count=0
                 collide=False
@@ -1690,25 +1821,13 @@ while True:
 #            print("reward:",reward)
             #RL.store_transition(observation, action, reward)
             
-            if M.pointer > MEMORY_CAPACITY and punish_turning==True:
-                
-                idx_punish = M.pointer % M.capacity
-                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
-#                print("punished_reward",punished_reward)
-#                punished_reward =-2*car.maxspeed/punished_reward
-                punished_reward =-punished_reward
-#                print("punished_reward_new",punished_reward)
-                M.write(idx_punish,punish_batch_size,punished_reward)
-                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
-#                print("punished_reward_new",punished_reward)
-                punish_turning=False
-#            print("idx_punish:",idx_punish)
+#            print("reward_sum:",reward_sum)
             M.store_transition(observation_old, action, reward, observation)
             
             #print("MEMORY_CAPACITY:",M.pointer)
             if M.pointer > MEMORY_CAPACITY:
                 var1 = max([var1*0.9999, VAR_MIN])    # decay the action randomness
-                var2 = max([var2*0.99999, VAR_MIN]) 
+                var2 = max([var2*0.9999, VAR_MIN]) 
 #                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
 #                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
                 b_M = M.sample(BATCH_SIZE)
@@ -1758,14 +1877,14 @@ while True:
         #else:
             #running_reward = running_reward * 0.01 + rs_sum * 0.99
             
-        running_reward = reward_show
+    
 
         if running_reward_max<running_reward and ep_total>1:
             
             running_reward_max=running_reward
             ep_lr=0
             max_reward_reset=max_reward_reset+1
-           
+        
   
 
         print("running_reward:",running_reward)
