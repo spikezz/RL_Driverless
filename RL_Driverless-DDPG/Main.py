@@ -15,28 +15,16 @@ import os
 import shutil
 from loader import load_image
 from pygame.locals import *
+from tensorflow.python import pywrap_tensorflow
 
 np.random.seed(1)
 tf.set_random_seed(1)
 
 
-#LR_A = 1e-6  # learning rate for actor
-#LR_C = 1e-6  # learning rate for critic
-#rd = 0.9  # reward discount
-#REPLACE_ITER_A = 1100
-#REPLACE_ITER_C = 1000
-#MEMORY_CAPACITY = 500
-#BATCH_SIZE = 2000
-#VAR_MIN = 0.1
-
 H1=180
 H2=180
 input_dim = 80
-#half_Max_angle=45
-#ACTION_DIM = 2
-#ACTION_BOUND0 = np.array([-0.1,0.5])
-#ACTION_BOUND1 = np.array([-45,45])
-#ACTION_BOUND=np.array([1,3])
+TAU=0.01
 
 # all placeholder for tf
 with tf.name_scope('S'):
@@ -57,6 +45,7 @@ class Actor(object):
         self.lr = LR
         self.t_replace_iter = t_replace_iter
         self.t_replace_counter = 0
+        self.Momentum=0.9
         
         self.angle=[]
         self.accelerate=[]
@@ -70,7 +59,8 @@ class Actor(object):
 
         self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/eval_net')
         self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/target_net')
-
+        self.soft_replace = [tf.assign(t, (1 - TAU) * t + TAU * e) for t, e in zip(self.t_params, self.e_params)]
+        
     def _build_net(self, s, scope, trainable):
         with tf.variable_scope(scope):
             #init_w = tf.contrib.layers.xavier_initializer()
@@ -85,12 +75,17 @@ class Actor(object):
                                           name='a', trainable=trainable)
                 scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
         return scaled_a
-
+#        return actions
     def learn(self, s):   # batch update
+        
+        self.sess.run(self.soft_replace)
+        
         self.sess.run(self.train_op, feed_dict={S: s})
-        if self.t_replace_counter % self.t_replace_iter == 0:
-            self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
-        self.t_replace_counter += 1
+#        if self.t_replace_counter % self.t_replace_iter == 0:
+#        if self.t_replace_counter == self.t_replace_iter:
+#            self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
+#            self.t_replace_counter = 0
+#        self.t_replace_counter += 1
 
     def choose_action(self, s):
         s = s[np.newaxis, :]    # single state
@@ -102,6 +97,7 @@ class Actor(object):
 
         with tf.variable_scope('A_train'):
             opt = tf.train.AdamOptimizer(-self.lr)  # (- learning rate) for ascent policy
+#            opt = tf.train.MomentumOptimizer(-self.lr,self.Momentum)# (- learning rate) for ascent policy
             self.train_op = opt.apply_gradients(zip(self.policy_grads, self.e_params))
 
 
@@ -116,7 +112,8 @@ class Critic(object):
         self.gamma = gamma
         self.t_replace_iter = t_replace_iter
         self.t_replace_counter = 0
-
+        self.Momentum=0.9
+       
         with tf.variable_scope('Critic'):
             # Input (s, a), output q
             self.a = a
@@ -136,10 +133,13 @@ class Critic(object):
 
         with tf.variable_scope('C_train'):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
-
+#            self.train_op = tf.train.MomentumOptimizer(self.lr,self.Momentum).minimize(self.loss)
+            
         with tf.variable_scope('a_grad'):
             self.a_grads = tf.gradients(self.q, a)[0]   # tensor of gradients of each sample (None, a_dim)
-
+        
+        self.soft_replace = [tf.assign(t, (1 - TAU) * t + TAU * e) for t, e in zip(self.t_params, self.e_params)]
+        
     def _build_net(self, s, a, scope, trainable):
         with tf.variable_scope(scope):
             #init_w = tf.contrib.layers.xavier_initializer()
@@ -155,18 +155,28 @@ class Critic(object):
             layer1 = tf.layers.dense(net, H1, activation=tf.nn.relu6,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l2',
                                   trainable=trainable)
-            layer2 = tf.layers.dense(layer1, H2, activation=tf.nn.tanh,
+            layer2 = tf.layers.dense(layer1, H1, activation=tf.nn.relu6,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l3',
                                   trainable=trainable)
+            layer3 = tf.layers.dense(layer2, H1, activation=tf.nn.tanh,
+                      kernel_initializer=init_w, bias_initializer=init_b, name='l4',
+                      trainable=trainable)
+#            layer1 = tf.layers.dense(net, H1, activation=tf.nn.relu6,
+#                      kernel_initializer=init_w, bias_initializer=init_b, name='l2',
+#                      trainable=trainable)
             with tf.variable_scope('q'):
-                q = tf.layers.dense(layer2,1,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
+                q = tf.layers.dense(layer3,1,activation=tf.nn.tanh,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
         return q
 
     def learn(self, s, a, r, s_):
+        
+        self.sess.run(self.soft_replace)
         self.sess.run(self.train_op, feed_dict={S: s, self.a: a, R: r, S_: s_})
-        if self.t_replace_counter % self.t_replace_iter == 0:
-            self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
-        self.t_replace_counter += 1
+#        if self.t_replace_counter % self.t_replace_iter == 0:        
+#        if self.t_replace_counter == self.t_replace_iter:
+#            self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
+#            self.t_replace_counter = 0
+#        self.t_replace_counter += 1
 
 
 class Memory(object):
@@ -190,7 +200,7 @@ class Memory(object):
     
     def read(self,idx,punish_batch_size):
         
-        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
+#        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
         idxs = np.zeros(punish_batch_size) 
         i=0
         for t in range(idx-punish_batch_size,idx):
@@ -203,7 +213,7 @@ class Memory(object):
         return self.data[idxs, :]
     def write(self,idx,punish_batch_size,punished_reward):
         
-        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
+#        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
         
         idxs = np.zeros(punish_batch_size) 
         i=0
@@ -280,6 +290,7 @@ player_s.add(car)
 coneb=traffic_cone.cone(CENTER[0],CENTER[1]-half_path_wide,-1,car.x,car.y)
 coney=traffic_cone.cone(CENTER[0],CENTER[1]+half_path_wide,1,car.x,car.y)
 #coneback=traffic_cone.cone(CENTER[0]+half_path_wide/2,CENTER[1],-1,car.x,car.y)
+coneback=None
 cone_s.add(coneb)
 cone_s.add(coney)
 #cone_h.add(coneback)
@@ -318,6 +329,7 @@ model=cv.initialize_model(CENTER,half_middle_axis_length,half_horizontal_axis_le
 ###initial Model of the car
 
 ##count/COUNT_FREQUENZ is the real time
+episode_time=60
 #every loop +1 for timer
 count=0
 #every loop +1 for timer
@@ -471,7 +483,7 @@ bound_lidar=CENTER[0]*2/5
 ##constant for lidar
 
 ##temporary state to form all the inputs
-state=[[],0,0,0]
+state=[[],[],0,[],0]
 ##temporary state to form all the inputs
 
 ##konstant of RL
@@ -558,18 +570,19 @@ LR_C = 1e-6
 rd = 0.9
 # reward discount
 #after this learning number of main net update the target net of actor
-REPLACE_ITER_A = 1100
+REPLACE_ITER_A = 2048
 #after this learning number of main net update the target net of actor
 #after this learning number of main net update the target net of Critic
-REPLACE_ITER_C = 1000
+REPLACE_ITER_C = 2048
 #after this learning number of main net update the target net of Critic
 #occupied memory
-MEMORY_CAPACITY = 1000
+MEMORY_CAPACITY = 131072
 #occupied memory
 #size of memory slice
-BATCH_SIZE = 4000
+BATCH_SIZE =128
 #size of memory slice
 #minimal exploration wide of action
+#VAR_MIN = 0.01
 VAR_MIN = 0.1
 #minimal exploration wide of action
 #initial exploration wide of action
@@ -586,7 +599,7 @@ ACTION_BOUND0 = np.array([-0.5,0.5])
 ACTION_BOUND1 = np.array([-45,45])
 #action boundary
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
-ACTION_BOUND=np.array([1,3])
+ACTION_BOUND=np.array([0.5,5])
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 #max reward reset
 max_reward_reset=0
@@ -647,7 +660,8 @@ for t in range (1,6):
 for t in range (1,23):
     path_man.append([path_man[corner[10]-2][0]+47.37*t,path_mirror*(path_man[corner[10]-2][1]-16*t)])
     
-
+coneback=traffic_cone.cone(path_man[corner[10]-2][0]+47.37*18,path_mirror*(path_man[corner[10]-2][1]-16*18),1,car.x,car.y)
+cone_h.add(coneback)
 #for t in range (1,5):
     #path_man.append([path_man[8][0]-50*t,path_man[8][1]+10*math.sqrt(t)])
 
@@ -724,17 +738,37 @@ critic = Critic(sess, input_dim, ACTION_DIM, LR_C, rd, REPLACE_ITER_C, actor.a, 
 actor.add_grad_to_graph(critic.a_grads)
 
 M = Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
-saver = tf.train.Saver()
 
-#LOAD = False
-LOAD = True
-MODE = ['online', 'cycle']
-n_model = 0
+List_net=[]
+List_at=[v for v in actor.t_params]
+List_ae=[v for v in actor.e_params]
+List_ct=[v for v in critic.t_params]
+List_ce=[v for v in critic.e_params]
+List_net.extend(List_at)
+List_net.extend(List_ae)
+List_net.extend(List_ct)
+List_net.extend(List_ce)
 
-di = './'+MODE[n_model]
+#saver = tf.train.Saver(var_list=List_net,max_to_keep=10000)
+saver = tf.train.Saver(max_to_keep=10000)
+
+LOAD = False
+#LOAD = True
+
+n_model = 1
+MODE = ['0',str(n_model)]
+#print(MODE)
+  
+#os.mkdir('./Model')
+di = './Model/Model_'+MODE[n_model]
+di_load = './Model/Model_'+'0'
+#di = './Model'
 ###main loop process
 if LOAD:
-    saver.restore(sess, tf.train.latest_checkpoint(di))
+    sess.run(tf.global_variables_initializer())
+    
+    saver.restore(sess, tf.train.latest_checkpoint(di_load))
+    
 else:
     sess.run(tf.global_variables_initializer())
         
@@ -942,7 +976,17 @@ while True:
                     lr=lr*10
                     RL.learning_rate=lr
                     print("max lr:",lr)
-                             
+                
+                if event.unicode == 'o':
+
+                    episode_time=episode_time+0.1
+                    print("episode_time:",episode_time)
+                
+                if event.unicode == 'p':
+
+                    episode_time=episode_time-0.1
+                    print("episode_time:",episode_time)
+                    
                 if event.key == K_t:
                     pass
 
@@ -969,13 +1013,14 @@ while True:
                     
                     cone_x, cone_y = pygame.mouse.get_pos()
                     cone_new=traffic_cone.cone(cone_x,cone_y,1,car.x,car.y)
-                    list_cone_yellow.append(cone_new)
-                    cone_s.add(cone_new)
-                    
-                    draw_yellow_cone.append([0,0])
-                    dis_yellow.append(0)
-                    vektor_yellow.append([0,0])
-                    p=p+1
+#                    coneback=cone_new
+#                    cone_h.add(coneback)
+#                    list_cone_yellow.append(cone_new)
+#                    cone_s.add(cone_new)
+#                    draw_yellow_cone.append([0,0])
+#                    dis_yellow.append(0)
+#                    vektor_yellow.append([0,0])
+#                    p=p+1
                     
                 elif pygame.mouse.get_pressed()==(False,False,True) :
                     
@@ -1305,8 +1350,9 @@ while True:
 #        print("dis_close_path_2",dis_close_path_2)  
 #        print("dis_close_path_1",dis_close_path_1)
 #        print("dis_between_path",dis_between_path)
-        
-#        dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
+        if coneback:
+            
+            dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
         ##start drawing
 #        car.speed=0.1
         if start_action==True:
@@ -1314,9 +1360,13 @@ while True:
             start_timer=True
             #print("observation:",observation)
             #action=RL. choose_action(observation)
-            #print("action:",action)
+#            print("action:",action)
             
             action = actor.choose_action(observation)
+#            print("action:",action)
+#            if action[0]>1 or action[1]>0 or action[0]<-1 or action[1]<-1:
+            
+#            print("action:",action)
             #exploration
 #            epsilon=np.random.random_sample()
 #            
@@ -1330,9 +1380,7 @@ while True:
 #                action[0]=(action[0]+1)/2*(ACTION_BOUND0[1]-ACTION_BOUND0[0])+ACTION_BOUND0[0]
                 #print("epsilon:",epsilon)
                 #print("var1:",var1)
-                #print("action[0]:",action[0])
-                #print("action[1]:",action[1])
-                #print("action[1]:",action[1])
+
             action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
             action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
             #exploration
@@ -1343,20 +1391,7 @@ while True:
                 action[0]=np.random.random_sample()*(ACTION_BOUND0[1]-0)
           
             #print("action:",action)
-            
-#            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
-#                
-#                angle=angle+action[1]
-#                
-#            elif angle<half_Max_angle and angle+action[1]>half_Max_angle:
-#                
-#                angle=half_Max_angle
-#                action[1]=half_Max_angle-angle
-#                
-#            elif angle>-half_Max_angle and angle+action[1]<-half_Max_angle:
-#                
-#                angle=-half_Max_angle
-#                action[1]=-half_Max_angle-angle
+
 #                
             angle_old=angle
                
@@ -1478,8 +1513,8 @@ while True:
         
         
         ##
-        text_yellow= font.render('vektor_yellow: ' + '( '+str(round(float(vektor_yellow[0][0]),2))+' , '+str(round(float(vektor_yellow[0][1]),2))+' )', 1, (0, 0, 102))   
-        textpos_yellow = text_yellow.get_rect(centery=425, left=20)
+        text_episode_time= font.render('episode_time: ' +str(round(float(episode_time),2)), 1, (0, 0, 102))   
+        text_pos_episode_time = text_episode_time.get_rect(centery=425, left=20)
         
         text_blue= font.render('vektor_blue: '+ '( ' + str(round(float(vektor_blue[0][0]),2))+' , '+str(round(float(vektor_blue[0][1]),2))+' )', 1, (0, 0, 102))   
         textpos_blue = text_blue.get_rect(centery=465, left=20)
@@ -1610,7 +1645,7 @@ while True:
             screen.blit(text_colour, textpos_colour)
             #screen.blit(text_dis_yellow, textpos_dis_yellow)
             #screen.blit(text_dis_blue, textpos_dis_blue)
-            screen.blit(text_yellow, textpos_yellow)
+            screen.blit(text_episode_time, text_pos_episode_time)
             screen.blit(text_blue, textpos_blue)
             screen.blit(text_speed_v, textpos_speed_v)
             screen.blit(text_show1, textpos_show1)
@@ -1673,6 +1708,9 @@ while True:
             state[1][0]=state[1][0]/car.maxspeed
             state[1][1]=state[1][1]/car.maxspeed
             state[2]=angle/half_Max_angle
+            state[4]=(car.dir%360)/180-1
+#            print("state[4]:",state[4])
+#            print("car.dir:",car.dir)
 #            print("len 1:",len(state[1]))
 #            print("len 0:",input_dim-len(state[1])-1-len(state[3]))
             
@@ -1683,7 +1721,7 @@ while True:
                 
 #            print ("state[3]",state[3])
             #state_input=np.hstack((state[1]*speed_faktor_enhance,state[2]*angle_faktor_enhance,state[3]))                  
-            state_input=np.hstack((state[1],state[2]))      
+            state_input=np.hstack((state[1],state[2],state[4]))      
 #            print (state_input)
             #print ('size:',state_input.size)
             
@@ -1695,6 +1733,7 @@ while True:
         #print ('!!!!!!!!!!!!!!!!!!!!!!!!!!!!')      
 #            print("observation:",observation)
         ##timer 
+#        print("car.dir:",(car.dir%360)/180-1)
         if start_timer==True:
     
             count=count+1
@@ -1709,32 +1748,20 @@ while True:
 #            
 #                reward=car.speed*speed_faktor+distance_faktor*distance+((2*car.maxspeed/car.acceleration)/1)
 #                
-            if v_distance_projection>4:
-                
-                reward=speed_projection*speed_faktor+4*(car.maxspeed/car.acceleration)/v_distance_projection
-                
-            else:
-            
-                reward=speed_projection*speed_faktor+4*(car.maxspeed/car.acceleration)/4
-            
-#            reward=speed_projection*speed_faktor
-#            print("(5*car.maxspeed)/pow(v_distance_projection,1):",(5*car.maxspeed)/pow(v_distance_projection,1))
-
-#            if reward<0:
+#            if v_distance_projection>5:
 #                
-#                print("reward:",reward)
-#                print("speed_projection:",speed_projection)
-            #reward=car.speed*speed_faktor+distance_faktor*distance
-
-#            if math.sqrt(diff_sum_yb)>1:
-#                
-#                reward=
+#                reward=speed_projection*speed_faktor+speed_projection*20*(car.maxspeed/car.acceleration)/v_distance_projection
 #                
 #            else:
 #            
-#                reward=
-            #reward=car.speed*speed_faktor+distance_faktor*distance
+#                reward=speed_projection*speed_faktor+speed_projection*20*(car.maxspeed/car.acceleration)/5
+         
             
+            
+                
+            reward=speed_projection*speed_faktor+speed_projection*(-40)*np.tanh(0.2*(v_distance_projection-(half_path_wide-safty_distance_turning)))
+           
+#            print("reward",reward)
             
 
             for i in range (0, q+1):
@@ -1749,50 +1776,53 @@ while True:
                     
                     collide=True
                     
-#            if dis_back<collision_distance*1.5:
+            if coneback:
                 
-#                collide=True
-            if M.pointer > MEMORY_CAPACITY and punish_turning==True:
-#                reward=-math.sqrt(reward**2)
-                idx_punish = M.pointer % M.capacity
-                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
-                for t in range(0,len(punished_reward)):
+                if dis_back<collision_distance*2:
                     
-                    if punished_reward[t]>0:
-                        
-                        reward_sum=reward_sum-2*math.sqrt(punished_reward[t]**2)
-                        punished_reward[t]=punished_reward[t]-2*math.sqrt(punished_reward[t]**2)
-#                print("punished_reward",punished_reward)
-#                punished_reward =-2*car.maxspeed/punished_reward
-#                print("punished_reward_new",punished_reward)
-                M.write(idx_punish,punish_batch_size,punished_reward)
-                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
-#                print("punished_reward_new",punished_reward)
-                punish_turning=False
-#            print("idx_punish:",idx_punish)   
+                    collide=True
+#            if M.pointer > MEMORY_CAPACITY and punish_turning==True:
+#            if punish_turning==True:
+#                reward=-math.sqrt(reward**2)
+#                idx_punish = M.pointer % M.capacity
+#                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+#                for t in range(0,len(punished_reward)):
+#                    
+#                    if punished_reward[t]>0:
+#                        
+#                        reward_sum=reward_sum-2*math.sqrt(punished_reward[t]**2)
+#                        punished_reward[t]=punished_reward[t]-2*math.sqrt(punished_reward[t]**2)
+##                print("punished_reward",punished_reward)
+##                punished_reward =-2*car.maxspeed/punished_reward
+##                print("punished_reward_new",punished_reward)
+#                M.write(idx_punish,punish_batch_size,punished_reward)
+#                punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+##                print("punished_reward_new",punished_reward)
+#                punish_turning=False
+##            print("idx_punish:",idx_punish)   
             reward_sum=reward_sum+reward
 #            print("reward_sum:",reward_sum)    
-            if collide==True or count/COUNT_FREQUENZ>1.5: 
-            #if pygame.sprite.spritecollide(car, cone_s, False) or count/COUNT_FREQUENZ>2:
+            if collide==True or count/COUNT_FREQUENZ>episode_time: 
+                
                 if collide==True :
                     
-                    reward=-pow(car.speed,3)
-                    if M.pointer > MEMORY_CAPACITY:
-                        
-                        idx_punish = M.pointer % M.capacity
-                        punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
-                        for t in range(0,len(punished_reward)):
-                            
-                            if punished_reward[t]>0:
-                                
-                                reward_sum=reward_sum-math.sqrt(punished_reward[t]**2)
-                                punished_reward[t]=punished_reward[t]-math.sqrt(punished_reward[t]**2)
-
-        #                print("punished_reward_new",punished_reward)
-                        M.write(idx_punish,2*punish_batch_size,punished_reward)
-                        punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
-        #                print("punished_reward_new",punished_reward)
-                    
+                    reward=-pow(car.speed,4)
+#                    
+#                    
+#                    idx_punish = M.pointer % M.capacity
+#                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+#                    for t in range(0,len(punished_reward)):
+#                        
+##                            if punished_reward[t]>0:
+#                            
+#                        reward_sum=reward_sum-math.sqrt(punished_reward[t]**2)
+#                        punished_reward[t]=punished_reward[t]-math.sqrt(punished_reward[t]**2)
+#
+#    #                print("punished_reward_new",punished_reward)
+#                    M.write(idx_punish,2*punish_batch_size,punished_reward)
+#                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+#    #                print("punished_reward_new",punished_reward)
+#                
                     
                 car.impact()
                 car.reset()
@@ -1826,8 +1856,10 @@ while True:
             
             #print("MEMORY_CAPACITY:",M.pointer)
             if M.pointer > MEMORY_CAPACITY:
-                var1 = max([var1*0.9999, VAR_MIN])    # decay the action randomness
-                var2 = max([var2*0.9999, VAR_MIN]) 
+                var1 = max([var1*0.99999, VAR_MIN])    # decay the action randomness
+                var2 = max([var2*0.99999, VAR_MIN]) 
+#                var1 = max([var1*0.9999999, VAR_MIN])    # decay the action randomness
+#                var2 = max([var2*0.9999999, VAR_MIN]) 
 #                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
 #                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
                 b_M = M.sample(BATCH_SIZE)
@@ -1860,13 +1892,23 @@ while True:
         
     else:
         print("var1:",var1,"var2:",var2)
-        print("MEMORY_CAPACITY:",M.pointer)
+        print("MEMORY_pointer:",M.pointer)
         print("MEMORY_CAPACITY:",M.capacity)
         if os.path.isdir(di): shutil.rmtree(di)
         os.mkdir(di)
-        ckpt_path = os.path.join('./'+MODE[n_model], 'DDPG.ckpt')
+        #var1 = 0.1
+        #var2 = 0.1
+        ckpt_path = os.path.join( './Model/Model_'+MODE[n_model], 'DDPG.ckpt')
         save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
         print("\nSave Model %s\n" % save_path)
+##         
+#        reader = pywrap_tensorflow.NewCheckpointReader(ckpt_path)
+#        var_to_shape_map = reader.get_variable_to_shape_map()
+#        tensor=reader.get_variable_to_dtype_map()
+#        #
+#        ## Print tensor name and values
+#        for key in var_to_shape_map:
+#            print("tensor_name: ", key)
         #print("RL.r_set:",RL.r_set)
         #rs_sum = sum(RL.r_set)
         
@@ -1963,7 +2005,14 @@ while True:
         print("totaol train:",ep_total)
         print("LOAD:",LOAD)
         ep_lr=ep_lr+1
+        n_model=n_model+1
+        MODE.append(str(n_model))
         print("lr ep :",ep_lr)
         summary=False
+        if ep_lr>10000:
+            
+            pygame.quit()
+                
+            sys.exit()
 
 ###main loop process

@@ -1,37 +1,61 @@
-import airsim
 from airsim import ImageRequest
-import rospy
-import os
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Vector3
 from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import PoseArray
+from geometry_msgs.msg import Pose
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float64
+
+
 import numpy as np
-import time as tm
 import calculate as cal
+import matplotlib.pyplot as plt
+import tensorflow as tf
+
+import airsim
+import rospy
+import os
 import cone
 import path_m
 import RL
-import tensorflow as tf
-
-tm.sleep(3)
+import time
+import math
+    
+time.sleep(3)
 
 client = airsim.CarClient()
 client.confirmConnection()
-#client.enableApiControl(True)
+client.enableApiControl(True)
 car_controls = airsim.CarControls()
 
+def set_throttle(data):
+    
+    car_controls.throttle=data.data
+    client.setCarControls(car_controls)
+    print("befehl:",data.data)
+
+def set_steering(data):
+    
+    car_controls.steering=data.data
+    client.setCarControls(car_controls)
+    print("befehl:",data.data)
+    
 rospy.init_node('publish', anonymous=True)
 pub_I = rospy.Publisher('UnrealImage', Image, queue_size=1000)
-pub_V = rospy.Publisher('velocity', Vector3, queue_size=1000)
-pub_A = rospy.Publisher('acceleration', Vector3, queue_size=1000)
-pub_aa = rospy.Publisher('angular_acceleration', Quaternion, queue_size=1000)
-pub_av = rospy.Publisher('angular_velocity', Quaternion, queue_size=1000)
 pub_E = rospy.Publisher('O_to_E', Vector3, queue_size=1000)
-pub_O = rospy.Publisher('Odometry', Odometry, queue_size=1000)
-pub_a = rospy.Publisher('action', Float32MultiArray, queue_size=1000)
+pub_velocity = rospy.Publisher('velocity', Vector3, queue_size=1000)
+pub_acceleration = rospy.Publisher('acceleration', Vector3, queue_size=1000)
+pub_angular_acceleration = rospy.Publisher('angular_acceleration', Quaternion, queue_size=1000)
+pub_angular_velocity = rospy.Publisher('angular_velocity', Quaternion, queue_size=1000)
+pub_Odometry_auto = rospy.Publisher('Odometry_auto', Odometry, queue_size=1000)
+pub_action = rospy.Publisher('action', Float32MultiArray, queue_size=1000)
+pub_blue_cone=rospy.Publisher('rightCones', PoseArray, queue_size=1000)
+pub_yellow_cone=rospy.Publisher('leftCones', PoseArray, queue_size=1000)
 #pub_Q = rospy.Publisher('Quaternion', Quaternion, queue_size=1000)
+#sub_throt=rospy.Subscriber("throttle",Float64,set_throttle)
+#sub_steer=rospy.Subscriber("steeringAngle",Float64, set_steering)
 
 rate = rospy.Rate(60) # 10hz
 car_state = client.getCarState()
@@ -42,15 +66,50 @@ init_v_y=car_state.kinematics_estimated.linear_velocity.y_val
 init_v_z=car_state.kinematics_estimated.linear_velocity.z_val
 #calibration white noise of velocity
 
+safty_distance_turning=3
+safty_distance_impact=2.5
+collision_distance=2
+punish_turnin=False
+reward_sum=0
+punish_batch_size=3
+idx_punish=0
+episode_time=1000
+elapsed_time=0
+time_stamp=0
+summary=False
+LOAD=False
+collision=False
+running_reward_max=0
+running_reward=0
+ep_total=0
+ep_lr=0
+max_reward_reset=0
+rr_set=[]
+reward_mean_set=[]
+#ratio of the max max running reward and the average running reward.1 is the goal
+reward_mean_max_rate=[]
+#ratio of the max max running reward and the average running reward.1 is the goal
+rr_idx=0
+#set of runing reward
+count=0
+#minimal exploration wide of action
+VAR_MIN = 0.1
+#minimal exploration wide of action
+#initial exploration wide of action
+var1 = 1
+var2 = 1
+#var1 = 0.1
+#var2 = 0.1
+#initial exploration wide of action
 #dimension of action
 ACTION_DIM = 2
 #dimension of action
 #action boundary
-ACTION_BOUND0 = np.array([-0.5,0.5])
-ACTION_BOUND1 = np.array([-45,45])
+ACTION_BOUND0 = np.array([0,1])
+ACTION_BOUND1 = np.array([-1,1])
 #action boundary
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
-ACTION_BOUND=np.array([1,3])
+ACTION_BOUND=np.array([0.5,1])
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 # learning rate for actor
 LR_A = 1e-6
@@ -61,22 +120,24 @@ LR_C = 1e-6
 # reward discount
 rd = 0.9
 # reward discount
-#after this learning number of main net update the target net of actor
-REPLACE_ITER_A = 1100
-#after this learning number of main net update the target net of actor
-#after this learning number of main net update the target net of Critic
-REPLACE_ITER_C = 1000
-#after this learning number of main net update the target net of Critic
+##after this learning number of main net update the target net of actor
+#REPLACE_ITER_A = 256
+##after this learning number of main net update the target net of actor
+##after this learning number of main net update the target net of Critic
+#REPLACE_ITER_C = 256
+##after this learning number of main net update the target net of Critic
 #occupied memory
-MEMORY_CAPACITY = 1000
+MEMORY_CAPACITY = 131072
 #occupied memory
-
+#size of memory slice
+BATCH_SIZE = 128
+#size of memory slice
 #constant of distance measure
 bound_lidar=20
 #constant of distance measure
 
 #create the Group contains yellow cone
-list_cone_yellow=0
+list_yellow_cone=0
 #create the Group contains yellow cone
 #create the Group contains blue cone
 list_cone_blue=0
@@ -93,15 +154,15 @@ for t in range (0,input_dim):
     observation[t]=0
     observation_old[t]=0
 
+car_controls_steering_old=0
 
 auto_spawn=False
 
-#qe_convert=qe.QuatToEuler()
 
 if auto_spawn==True:
     
     ##constant of path
-    half_path_wide=2.5
+    half_path_wide=4
     delta_path=5
     ##constant of path
     #create the Group contains track mittle point
@@ -120,7 +181,7 @@ if auto_spawn==True:
     
     cone_new=cone.cone(1,cone_x,cone_y,car_state.kinematics_estimated.position.z_val)
     
-    list_cone_yellow.append(cone_new)
+    list_yellow_cone.append(cone_new)
     
     print("cone new:",cone_new)
     
@@ -131,7 +192,7 @@ if auto_spawn==True:
     
     cone_new=cone.cone(-1,cone_x,cone_y,car_state.kinematics_estimated.position.z_val)
     
-    list_cone_yellow.append(cone_new)
+    list_yellow_cone.append(cone_new)
     
     print("cone new:",cone_new)
     
@@ -157,7 +218,7 @@ if auto_spawn==True:
         print("cone_y:",cone_y)
         cone_new=cone.cone(1,cone_x,cone_y,car_state.kinematics_estimated.position.z_val)
         
-        list_cone_yellow.append(cone_new)
+        list_yellow_cone.append(cone_new)
         
         print("cone new:",cone_new)
     
@@ -180,14 +241,33 @@ critic = RL.Critic(sess, input_dim, ACTION_DIM, LR_C, rd, REPLACE_ITER_C, actor.
 actor.add_grad_to_graph(critic.a_grads)
 
 M = RL.Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
-saver = RL.Saver(sess)
+saver = RL.Saver(sess,LOAD)
 
 while not rospy.is_shutdown():
-	
-    car_controls.throttle = 0.5
-    car_controls.steering = 0
-    client.setCarControls(car_controls)
-
+    
+    if count<30:
+#        
+#        car_controls.throttle=1
+#        car_controls.steering=-1
+#        client.setCarControls(car_controls)
+        count=count+1
+        
+    else:
+        car_controls.throttle=0
+#        car_controls.steering=0.5
+#        car_controls.brake = 0.1
+#        client.setCarControls(car_controls)
+#        print("Apply brakes")
+#        time.sleep(0.1)   # let car drive a bit
+#        car_controls.brake = 0 #remove brake        
+#        client.setCarControls(car_controls)
+#        client.reset()
+#        client.enableApiControl(False)
+        count=0
+#        count=count+1
+        
+#    print("count:",count)
+    
     responses = client.simGetImages([ImageRequest("0", airsim.ImageType.Scene, False, False)])
     response = responses[0]
 
@@ -208,6 +288,7 @@ while not rospy.is_shutdown():
         print("Image acquisition failed")
 
 	#print(image_msg)
+    
 
     acc_msg=Vector3()
     vel_msg=Vector3()
@@ -217,7 +298,8 @@ while not rospy.is_shutdown():
     qua_msg=Quaternion()
     eul_msg=Vector3()
     act_msg=Float32MultiArray()
-    
+    bcn_msg=PoseArray()
+    ycn_msg=PoseArray()
     
     car_state = client.getCarState()
     acc_msg.x=car_state.kinematics_estimated.linear_acceleration.x_val
@@ -237,7 +319,7 @@ while not rospy.is_shutdown():
     a_v_msg.x=car_state.kinematics_estimated.angular_velocity.to_Quaternionr().x_val
     a_v_msg.y=car_state.kinematics_estimated.angular_velocity.to_Quaternionr().y_val
     a_v_msg.z=car_state.kinematics_estimated.angular_velocity.to_Quaternionr().z_val
-    
+#    print("a_a_msg:",a_a_msg)
     odo_msg.header.seq = 0
     odo_msg.header.stamp = rospy.get_rostime()
     odo_msg.header.frame_id = ""
@@ -249,82 +331,408 @@ while not rospy.is_shutdown():
     odo_msg.pose.pose.orientation.y=car_state.kinematics_estimated.orientation.y_val
     odo_msg.pose.pose.orientation.z=car_state.kinematics_estimated.orientation.z_val
     
-#    qua_msg.w=odo_msg.pose.pose.orientation.w
-#    qua_msg.x=odo_msg.pose.pose.orientation.x
-#    qua_msg.y=odo_msg.pose.pose.orientation.y
-#    qua_msg.z=odo_msg.pose.pose.orientation.z
-    
     (eul_msg.x, eul_msg.y, eul_msg.z) = cal.euler_from_quaternion([odo_msg.pose.pose.orientation.x, odo_msg.pose.pose.orientation.y, odo_msg.pose.pose.orientation.z, odo_msg.pose.pose.orientation.w])
-    
+
     act_msg.data.append(car_controls.throttle)
+    act_msg.data.append(car_controls.brake)
     act_msg.data.append(car_controls.steering)
-    
-    list_blue_cone=client.simGetObjectPoses("LeftCone")
-    list_cone_yellow=client.simGetObjectPoses("RightCone")   
-    list_cone_sensored=[]
-    cone_sort_temp=[]
-    cone_sort_end=[]
-    
-    for c in list_blue_cone:   
-
-        distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-#      
-        if distance_cone< bound_lidar:
+#    print("act_msg.data",act_msg.data)
+#    
+    elapsed_time=time.time()-time_stamp
+    if summary==False:
+        
+        list_blue_cone=client.simGetObjectPoses("RightCone")
+        list_yellow_cone=client.simGetObjectPoses("LeftCone")   
+        
+        
+        bcn_msg.header.seq = 0
+        bcn_msg.header.stamp = rospy.get_rostime()
+        bcn_msg.header.frame_id = ""
+ #       bcn_msg.poses=list_blue_cone
+        for c in list_blue_cone:
+#            print("c:",c)
+            new_pose=Pose()
+#            new_pose.position = Point()
+            new_pose.position.x=c.position.x_val
+            new_pose.position.y=c.position.y_val
+            new_pose.position.z=c.position.z_val
+            bcn_msg.poses.append(new_pose)
             
-            list_cone_sensored.append([c.position.x_val,c.position.y_val])
+        
+        ycn_msg.header.seq = 0
+        ycn_msg.header.stamp = rospy.get_rostime()
+        ycn_msg.header.frame_id = ""
+#        ycn_msg.poses=list_yellow_cone
+        
+        for c in list_yellow_cone:
+#            print("c:",c)
+            new_pose=Pose()
+#            new_pose.position = Point()
+            new_pose.position.x=c.position.x_val
+            new_pose.position.y=c.position.y_val
+            new_pose.position.z=c.position.z_val
+            ycn_msg.poses.append(new_pose)
+        action = actor.choose_action(observation)
+        print("action:",action)
+        action=[0,0]
+        action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
+        action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
+        action[0]=action[0]+0.5
+        if car_state.speed<=1:
+#            
+#            print("speed:",car_state.speed)
+            action[0]=np.random.random_sample()
+#            print("action[0]:",action[0])
+        
+#        action[1]=np.random.random_sample()*(ACTION_BOUND1[1]-ACTION_BOUND1[0])+ACTION_BOUND1[0]
+    #    print("action[1]:",action[1])
+        car_controls_steering_old=car_controls.steering
+        
+        if car_controls.steering<1 and car_controls.steering>-1 and car_controls.steering+action[1]<1 and car_controls.steering+action[1]>-1:
             
-    for c in list_cone_yellow:
-
-        distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+            car_controls.steering=car_controls.steering+action[1]
         
-        if distance_cone< bound_lidar:
+        else:
             
-            list_cone_sensored.append([c.position.x_val,c.position.y_val])
-    for i in range (len(list_cone_sensored)):
-              
-        cone_sort_temp.append([cal.calculate_sita_r(list_cone_sensored[i],[0,0]),list_cone_sensored[i]])
+            action[1]=0
+            
+           
+        
+        for c in list_blue_cone:   
     
-    cone_sort_temp=sorted(cone_sort_temp)
+            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+          
+            if distance_cone<safty_distance_turning:
+                
+                punish_turning=True
+                
+                if distance_cone<safty_distance_impact:
+                    
+                    car_controls.steering=-1
+                    action[1]=-1-car_controls_steering_old
+    #                print("car_controls.steering:",car_controls.steering)
+                    break
+                
+                elif car_controls.steering>0:
+                    
+                    car_controls.steering=0
+                    action[1]=0-car_controls_steering_old
+    #                print("car_controls.steering:",car_controls.steering)
+                    break
+                
+                if car_controls.steering<1 and car_controls.steering>-1:
+                    action[1]=-0.1
+                    car_controls.steering=car_controls.steering+action[1]
+    #                print("car_controls.steering:",car_controls.steering)
+                    
+                break
+            
+        for c in list_yellow_cone:
+            
+            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+         
+            if distance_cone<safty_distance_turning:
+                
+                punish_turning=True
+                
+                if distance_cone<safty_distance_impact:
+                    
+                    car_controls.steering=1
+                    action[1]=1-car_controls_steering_old
+    #                print("car_controls.steering:",car_controls.steering)
+                    break
+                
+                elif car_controls.steering<0:
+                    
+                    car_controls.steering=0
+                    action[1]=0-car_controls_steering_old
+    #                print("car_controls.steering:",car_controls.steering)
+                    break
+                 
+                if car_controls.steering<1 and car_controls.steering>-1:
+                    
+                    action[1]=0.1
+                    car_controls.steering=car_controls.steering+action[1]
+    #                print("car_controls.steering:",car_controls.steering)
+                    
+                break
+            
+        print("action:",action)
+        car_controls.throttle=float(action[0]) 
+        
+        client.setCarControls(car_controls)
+        actor.angle.append(action[1])
+        actor.accelerate.append(action[0])
+    #    
+    #    qua_msg.w=odo_msg.pose.pose.orientation.w
+    #    qua_msg.x=odo_msg.pose.pose.orientation.x
+    #    qua_msg.y=odo_msg.pose.pose.orientation.y
+    #    qua_msg.z=odo_msg.pose.pose.orientation.z
+          
+        act_msg.data.append(car_controls.throttle)
+        act_msg.data.append(car_controls.brake)
+        act_msg.data.append(car_controls.steering)
+         
+        list_cone_sensored=[]
+        cone_sort_temp=[]
+        cone_sort_end=[]
+        
+        for c in list_blue_cone:   
     
-#    print("cone_sort_temp:",cone_sort_temp)
+            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+    #      
+            if distance_cone< bound_lidar:
+                
+                list_cone_sensored.append([c.position.x_val,c.position.y_val])
+                
+        for c in list_yellow_cone:
     
-    for i in range (len(cone_sort_temp)):
+            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+            
+            if distance_cone< bound_lidar:
+                
+                list_cone_sensored.append([c.position.x_val,c.position.y_val])
+        for i in range (len(list_cone_sensored)):
+                  
+            cone_sort_temp.append([cal.calculate_sita_r(list_cone_sensored[i],[0,0]),list_cone_sensored[i]])
         
-        cone_sort_end.append(cone_sort_temp[i][1])
+        cone_sort_temp=sorted(cone_sort_temp)
         
-#    print("cone_sort_end:",cone_sort_end)
-    
-    state[0]=cone_sort_end 
-    state[0]=np.vstack(state[0]).ravel()
-    print("state[0]:",state[0])
-    state[1]=np.vstack([vel_msg.x,vel_msg.y,vel_msg.z]).ravel()
-    state[2]=np.vstack([acc_msg.x,acc_msg.y,acc_msg.z]).ravel()
-    state[3]=np.vstack([a_a_msg.w,a_a_msg.x,a_a_msg.y,a_a_msg.z]).ravel()
-    state[4]=np.vstack([a_v_msg.w,a_v_msg.x,a_v_msg.y,a_v_msg.z]).ravel()
-    state[5]=np.vstack([odo_msg.pose.pose.orientation.w,odo_msg.pose.pose.orientation.x,odo_msg.pose.pose.orientation.y,odo_msg.pose.pose.orientation.z]).ravel()
-    state_input=np.hstack((state[1],state[2],state[3],state[4],state[5]))  
-    print("state_input:",state_input)
-    
-    for t in range(len(state[0])):
+    #    print("cone_sort_temp:",cone_sort_temp)
         
-        observation[t]=state[0][t]
+        for i in range (len(cone_sort_temp)):
+            
+            cone_sort_end.append(cone_sort_temp[i][1])
+            
+    #    print("cone_sort_end:",cone_sort_end)
         
-    for t in range(-len(state_input),0):
+        state[0]=cone_sort_end
+        if len(state[0])!=0:
+            state[0]=np.vstack(state[0]).ravel()
+    #    print("state[0]:",state[0])
+        state[1]=np.vstack([vel_msg.x,vel_msg.y,vel_msg.z]).ravel()
+        state[2]=np.vstack([acc_msg.x,acc_msg.y,acc_msg.z]).ravel()
+        state[3]=np.vstack([a_a_msg.w,a_a_msg.x,a_a_msg.y,a_a_msg.z]).ravel()
+        state[4]=np.vstack([a_v_msg.w,a_v_msg.x,a_v_msg.y,a_v_msg.z]).ravel()
+        state[5]=np.vstack([odo_msg.pose.pose.orientation.w,odo_msg.pose.pose.orientation.x,odo_msg.pose.pose.orientation.y,odo_msg.pose.pose.orientation.z]).ravel()
+        state_input=np.hstack((car_controls.steering,state[1],state[2],state[3],state[4],state[5]))  
+    #    print("state_input:",state_input)
         
-        observation[t]=state_input[t]
+        for t in range(len(state[0])):
+            
+            observation[t]=state[0][t]
+            
+        for t in range(-len(state_input),0):
+            
+            observation[t]=state_input[t]
+            
+    #    print("observation:",observation)
+           
+        reward=car_state.speed
         
-    print("observation:",observation)
-       
-#
+#        collision=client.simGetCollisionInfo().has_collisiond
+        
+        for c in list_blue_cone: 
+            
+            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+          
+            if distance_cone<collision_distance:
+                
+                collision=True
+                
+        for c in list_yellow_cone: 
+            
+            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+          
+            if distance_cone<collision_distance:
+                
+                collision=True
+                
+    #    if coneback:
+    #        
+    #        if dis_back<collision_distance*1.5:
+    #            
+    #            collision=True
+            
+    #    if M.pointer > MEMORY_CAPACITY and punish_turning==True:
+    #        #                reward=-math.sqrt(reward**2)
+    #        idx_punish = M.pointer % M.capacity
+    #        punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+    #        for t in range(0,len(punished_reward)):
+    #                
+    #            if punished_reward[t]>0:
+    #                    
+    #                reward_sum=reward_sum-2*math.sqrt(punished_reward[t]**2)
+    #                punished_reward[t]=punished_reward[t]-2*math.sqrt(punished_reward[t]**2)
+    #            #                print("punished_reward",punished_reward)
+    #            #                punished_reward =-2*car.maxspeed/punished_reward
+    #            #                print("punished_reward_new",punished_reward)
+    #            M.write(idx_punish,punish_batch_size,punished_reward)
+    #        punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
+    #        #                print("punished_reward_new",punished_reward)
+    #        punish_turning=False
+    #        #            print("idx_punish:",idx_punish)  
+                
+        reward_sum=reward_sum+reward
+#        print("Collision:",client.simGetCollisionInfo().has_collisiond)
 
+#        if elapsed_time>episode_time or collision==True: 
+        if collision==True: 
+            
+            if collision==True :
+                
+                reward=-pow(car_state.speed,3)
+                if M.pointer > MEMORY_CAPACITY:
+                    
+                    idx_punish = M.pointer % M.capacity
+                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+                    for t in range(0,len(punished_reward)):
+                        
+                        if punished_reward[t]>0:
+                            
+                            reward_sum=reward_sum-math.sqrt(punished_reward[t]**2)
+                            punished_reward[t]=punished_reward[t]-3*math.sqrt(punished_reward[t]**2)
+        
+        #                print("punished_reward_new",punished_reward)
+                    M.write(idx_punish,2*punish_batch_size,punished_reward)
+                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+        #                print("punished_reward_new",punished_reward)
+           
+            client.reset()
+            reward_sum=reward_sum+reward
+            running_reward=reward_sum
+            reward_sum=0
+    #        distance_set.append(distance)
+    #        distance=0
+            time_stamp = time.time()
+            car_controls.steering=0
+            car_controls.throttle=0
+            count=0
+            collision=False
+            summary=True
+    
+    #RL.store_transition(observation, action, reward)
+    
+        #            print("reward_sum:",reward_sum)
+        M.store_transition(observation_old, action, reward, observation)
+        
+        #print("MEMORY_CAPACITY:",M.pointer)
+        if M.pointer > MEMORY_CAPACITY:
+            var1 = max([var1*0.99999, VAR_MIN])    # decay the action randomness
+            var2 = max([var2*0.99999, VAR_MIN]) 
+        #                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
+        #                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
+            b_M = M.sample(BATCH_SIZE)
+        #                print("BATCH_SIZE:",BATCH_SIZE)
+            b_s = b_M[:, :input_dim]
+            b_a = b_M[:, input_dim: input_dim + ACTION_DIM]
+            b_r = b_M[:, -input_dim - 1: -input_dim]
+            b_s_ = b_M[:, -input_dim:]
+            
+        #                print("b_M:",b_M)
+        #                print("b_s:",b_s)
+        #                print("b_a:",b_a)
+        #                print("b_r:",b_r)
+        #                print("b_s_:",b_s_)
+            critic.learn(b_s, b_a, b_r, b_s_)
+            actor.learn(b_s)
+            
+        observation_old=observation
+        
+    else:
+        print("var1:",var1,"var2:",var2)
+        print("MEMORY_pointer:",M.pointer)
+        print("MEMORY_CAPACITY:",M.capacity)
+        saver.save(sess)
+
+        if running_reward_max<running_reward and ep_total>1:
+            
+            running_reward_max=running_reward
+            ep_lr=0
+            max_reward_reset=max_reward_reset+1
+        
+  
+
+        print("running_reward:",running_reward)
+        print("max_running_reward:",running_reward_max)
+        
+        rr_set.append(running_reward)   
+        rr_idx=rr_idx+1
+        reward_mean_set.append(sum(rr_set)/rr_idx)
+        
+        print("reward_mean:",reward_mean_set[rr_idx-1])
+        if rr_idx>5:
+            
+            reward_mean_max_rate.append(running_reward_max/reward_mean_set[rr_idx-1])
+        #if RL.learning_rate>0.001:
+
+        print("max_reward_reset:",max_reward_reset)
+
+        plt.subplot(321)
+        plt.plot(rr_set)  
+        plt.xlabel('episode steps')
+        plt.ylabel('runing reward')
+
+        #plt.subplot(432)
+        #plt.plot(vt)    # plot the episode vt
+        #plt.xlabel('episode steps')
+        #plt.ylabel('normalized state-action value')
+        
+     
+        plt.subplot(323)
+        plt.plot(reward_mean_set)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward_mean')
+        
+        plt.subplot(324)
+        plt.plot(actor.angle)  
+        plt.xlabel('episode steps')
+        plt.ylabel('angle')
+        
+        plt.subplot(325)
+        plt.plot(actor.accelerate)  
+        plt.xlabel('episode steps')
+        plt.ylabel('accelerate')
+                
+        #plt.subplot(4,2,6)
+        #plt.plot(lr_set)  
+        #plt.xlabel('episode steps')
+        #plt.ylabel('learning rate')
+        
+        plt.subplot(3,2,6)
+        plt.plot(reward_mean_max_rate)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward Max/mean')
+# =============================================================================
+#         plt.subplot(4,3,11)
+#         plt.plot(distance_set)  
+#         plt.xlabel('episode steps')
+#         plt.ylabel('distance_set')
+#       
+# =============================================================================
+        plt.show()
+        actor.angle=[]
+        actor.accelerate=[]
+
+        
+        #print(actor.policy_grads[0])
+        ep_total=ep_total+1
+        print("totaol train:",ep_total)
+        print("LOAD:",LOAD)
+        ep_lr=ep_lr+1
+        print("lr ep :",ep_lr)
+        summary=False
+        
+        
     pub_I.publish(image_msg)
-    pub_A.publish(acc_msg)
-    pub_V.publish(vel_msg)
-    pub_aa.publish(a_a_msg)
-    pub_av.publish(a_v_msg)
-    pub_O.publish(odo_msg)
+    pub_acceleration.publish(acc_msg)
+    pub_velocity.publish(vel_msg)
+    pub_angular_acceleration.publish(a_a_msg)
+    pub_angular_velocity.publish(a_v_msg)
+    pub_Odometry_auto.publish(odo_msg)
     pub_E.publish(eul_msg)
-    pub_a.publish(act_msg)
+    pub_blue_cone.publish(bcn_msg)
+    pub_yellow_cone.publish(ycn_msg)
     
     rate.sleep()
     
