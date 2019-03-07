@@ -95,6 +95,27 @@ def calculate_t(line,colour,distance):
     
     return tpoint
 
+def calculate_projection(switch,short,long,bottom):
+    projektion=[0,0]
+    if switch==True:
+#        angle=math.degrees(math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom)))
+        angle=math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom))
+#        print("angle",angle)
+        projektion[0]=short*math.cos(angle)
+        projektion[1]=short*math.sin(angle)
+#        print("projektion[1]",projektion[1])
+
+    else:
+#        angle=math.degrees(math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom)))
+        angle=math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom))
+#        print("angle",angle)
+        
+        projektion[0]=long*math.cos(angle)
+        projektion[1]=long*math.sin(angle)
+#        print("projektion[1]",projektion[1])
+#    short*math.cos(math.radians(angle))
+    return projektion
+
 def quaternion_matrix(quaternion):
     """Return homogeneous rotation matrix from quaternion.
 

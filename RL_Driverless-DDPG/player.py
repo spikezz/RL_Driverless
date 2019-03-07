@@ -192,7 +192,7 @@ class Player(pygame.sprite.Sprite):
             #self.emit_tracks()
 
 #Steer.
-    def steerleft(self,angle):
+    def steerleft(self):
     #def steerleft(self):    
         self.dir =self.dir+math.degrees(self.speed/self.rrl)
         #self.dir = self.dir+self.steering
@@ -205,7 +205,7 @@ class Player(pygame.sprite.Sprite):
         self.image, self.rect = rot_center(self.image_orig, self.rect, self.dir)
 
 #Steer.
-    def steerright(self,angle):
+    def steerright(self):
         self.dir =self.dir-math.degrees(self.speed/self.rrr)
         #self.dir = self.dir-self.steering
         if self.dir < 0:
@@ -267,6 +267,11 @@ class Player(pygame.sprite.Sprite):
         if self.speed > 0:
             self.speed = -self.minspeed
 
-
+#    def steering():
+#        
+#        return {
+#            'a': 1,
+#            'b': 2,
+#        }[x]
         
 

@@ -29,12 +29,11 @@ with tf.name_scope('S_'):
 
 
 class Actor(object):
-    def __init__(self, sess, n_a, action_bound, LR, t_replace_iter):
+    def __init__(self, sess, n_a, action_bound, LR):
         self.sess = sess
         self.a_dim = n_a
         self.action_bound = action_bound
         self.lr = LR
-        self.t_replace_iter = t_replace_iter
         self.t_replace_counter = 0
         self.Momentum=0.9
         
@@ -93,14 +92,13 @@ class Actor(object):
 
 class Critic(object):
     
-    def __init__(self, sess, state_dim, action_dim, learning_rate, gamma, t_replace_iter, a, a_):
+    def __init__(self, sess, state_dim, action_dim, learning_rate, gamma, a, a_):
         
         self.sess = sess
         self.s_dim = state_dim
         self.a_dim = action_dim
         self.lr = learning_rate
         self.gamma = gamma
-        self.t_replace_iter = t_replace_iter
         self.t_replace_counter = 0
         self.Momentum=0.9
 
@@ -227,18 +225,34 @@ class Saver(object):
             
         self.LOAD = load
         #LOAD = True
-        self.MODE = ['online', 'cycle']
+        self.MODE = ['0']
         self.n_model = 0
-        self.di = './'+self.MODE[self.n_model]
+        self.di = './Model/Model_'+self.MODE[self.n_model]
+        di_load = './Model/Model_0'
         if self.LOAD:
-            self.saver.restore(sess, tf.train.latest_checkpoint(self.di))
-        else:
+            
             sess.run(tf.global_variables_initializer())
     
-    def save(self,sess):
+            self.saver.restore(sess, tf.train.latest_checkpoint(di_load))
+        else:
+            
+            if os.path.isdir(di_load): shutil.rmtree(di_load)
+            sess.run(tf.global_variables_initializer())
+            os.mkdir(di_load)
+    
+    def save(self,sess,running_reward):
+        
+        self.n_model+=1
+        self.MODE.append(str(self.n_model))
         
         if os.path.isdir(self.di): shutil.rmtree(self.di)
         os.mkdir(self.di)
-        ckpt_path = os.path.join('./'+self.MODE[self.n_model], 'DDPG.ckpt')
+        ckpt_path = os.path.join( './Model/Model_'+self.MODE[self.n_model], 'DDPG.ckpt')
         save_path = self.saver.save(sess, ckpt_path, write_meta_graph=False)
         print("\nSave Model %s\n" % save_path)
+
+        file = os.path.join( './Model/Model_'+self.MODE[self.n_model], 'episode_reward.txt')
+        fw=open(file, mode='w')
+        reward_str= str(running_reward)
+        fw.seek(0,0)
+        fw.write( reward_str)

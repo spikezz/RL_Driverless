@@ -373,6 +373,7 @@ for x in range (0,7):
        
 ##collision detection
 collide=False
+collide_finish=False
 ##collision detection   
 
 ##constant for cone
@@ -452,9 +453,17 @@ draw_path.append([0,0])#init
 #find 2 path point
 path_close_1=[0,0]
 path_close_2=[0,0]
-dis_close_path_1=0
-dis_close_path_2=0
+yellow_cone_close_1=[0,0]
+yellow_cone_close_2=[0,0]
+blue_cone_close_1=[0,0]
+blue_cone_close_2=[0,0]
+sin_projection_yellow=0
+sin_projection_blue=0
+#dis_close_path_1=0
+#dis_close_path_2=0
 dis_between_path=0
+dis_between_yellow_cone=0
+dis_between_blue_cone=0
 dis_close_path_temp=0
 base_path_mileage=0
 tag=0
@@ -505,7 +514,7 @@ speed_faktor=10
 distance_faktor=0
 #weight for the distance in reward
 #minimum distance before impact
-safty_distance_impact=60
+safty_distance_impact=50
 #minimum distance before impact
 #minimum distance before turning
 safty_distance_turning=65
@@ -582,7 +591,7 @@ MEMORY_CAPACITY = 131072
 BATCH_SIZE =128
 #size of memory slice
 #minimal exploration wide of action
-#VAR_MIN = 0.01
+VAR_MIN_updated = 0.01
 VAR_MIN = 0.1
 #minimal exploration wide of action
 #initial exploration wide of action
@@ -749,19 +758,22 @@ List_net.extend(List_ae)
 List_net.extend(List_ct)
 List_net.extend(List_ce)
 
+
+
 #saver = tf.train.Saver(var_list=List_net,max_to_keep=10000)
 saver = tf.train.Saver(max_to_keep=10000)
 
 LOAD = False
 #LOAD = True
 
-n_model = 1
-MODE = ['0',str(n_model)]
+n_model = 0
+MODE = ['0']
 #print(MODE)
   
 #os.mkdir('./Model')
 di = './Model/Model_'+MODE[n_model]
-di_load = './Model/Model_'+'0'
+di_load = './Model/Model_0'
+
 #di = './Model'
 ###main loop process
 if LOAD:
@@ -771,6 +783,7 @@ if LOAD:
     
 else:
     sess.run(tf.global_variables_initializer())
+    os.mkdir(di_load)
         
 while True:
 
@@ -911,7 +924,7 @@ while True:
                 
         ##system event
         for event in pygame.event.get():
-            
+#            print(event)
             # quit for windows
             if event.type == QUIT:
                         
@@ -923,11 +936,11 @@ while True:
             if event.type == KEYDOWN :
                 
                 # quit for esc key
-                if event.key == K_ESCAPE:  
-                                
-                    pygame.quit()
-                    
-                    sys.exit()
+#                if event.key == K_ESCAPE:  
+#                                
+#                    pygame.quit()
+#                    
+#                    sys.exit()
                     
                 #timer
                 if event.unicode == ' ':  
@@ -965,18 +978,18 @@ while True:
                     #ep_lr=0
                     max_reward_reset=max_reward_reset+1
                     
-                if event.unicode == 'd':
-                    
-                    lr=lr/10
-                    RL.learning_rate=lr
-                    print("max lr:",lr)
-
-                if event.unicode == 'm':
-
-                    lr=lr*10
-                    RL.learning_rate=lr
-                    print("max lr:",lr)
-                
+#                if event.unicode == 'd':
+#                    pass
+##                    lr=lr/10
+##                    RL.learning_rate=lr
+##                    print("max lr:",lr)
+#
+#                if event.unicode == 'm':
+#                    pass
+##                    lr=lr*10
+##                    RL.learning_rate=lr
+##                    print("max lr:",lr)
+#                
                 if event.unicode == 'o':
 
                     episode_time=episode_time+0.1
@@ -987,17 +1000,17 @@ while True:
                     episode_time=episode_time-0.1
                     print("episode_time:",episode_time)
                     
-                if event.key == K_t:
-                    pass
-
-                    #if os.path.isdir(path): shutil.rmtree(path)
-                    #os.mkdir(path)
-                    #ckpt_path = os.path.join('./'+MODE[n_model], 'DDPG.ckpt')
-                    #save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
-                    #print("\nSave Model %s\n" % save_path)
-                                        
-
-                    
+#                if event.key == K_t:
+#                    pass
+#
+#                    #if os.path.isdir(path): shutil.rmtree(path)
+#                    #os.mkdir(path)
+#                    #ckpt_path = os.path.join('./'+MODE[n_model], 'DDPG.ckpt')
+#                    #save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
+#                    #print("\nSave Model %s\n" % save_path)
+#                                        
+#
+#                    
             if event.type == KEYUP :    
                 
                 if event.key == K_LEFT or event.key == K_RIGHT:
@@ -1131,6 +1144,90 @@ while True:
         #wheel 20
         
         #angle signal give to the object car
+        
+        if start_action==True:
+            
+            start_timer=True
+            
+            action = actor.choose_action(observation)
+
+            action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
+            action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
+
+            if car.speed<=1 and action[0]<0:
+                action[0]=np.random.random_sample()*(ACTION_BOUND0[1]-0)
+          
+            #print("action:",action)
+
+                
+            angle_old=angle
+            
+               
+            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
+                
+                angle=angle+action[1]
+            
+            else:
+                
+                action[1]=0
+#            
+            if sin_projection_blue<safty_distance_turning:
+                
+                punish_turning=True
+                
+                if sin_projection_blue<safty_distance_impact:
+                    
+                    angle=half_Max_angle
+                    action[1]=half_Max_angle-angle_old             
+                
+                elif angle==half_Max_angle or angle<0:
+                    
+                    angle=0
+                    action[1]=0-angle_old
+
+                elif angle<half_Max_angle and angle>=0:
+                    
+                    action[1]=5
+                    angle=angle+action[1]
+                    
+            elif sin_projection_yellow<safty_distance_turning:
+                
+                punish_turning=True
+                
+                if sin_projection_yellow<safty_distance_impact:
+                    
+                    angle=-half_Max_angle
+                    action[1]=-half_Max_angle-angle_old            
+                
+                elif angle==-half_Max_angle or angle>0:
+                    
+                    angle=0
+                    action[1]=0-angle_old
+
+                elif angle>-half_Max_angle and angle<=0:
+                    
+                    action[1]=-5
+                    angle=angle+action[1]               
+      
+#            elif angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
+#                
+#                angle=angle+action[1]
+#            
+#            else:
+#                
+#                action[1]=0
+                
+            if angle>50 or angle<-50:
+                
+                pass
+                
+            car.accelerate(action[0])
+            #print("car.speed",car.speed)
+            #print("action[0]",action[0])
+            actor.angle.append(action[1])
+            actor.accelerate.append(action[0])
+  
+        
         car.wheelangle=angle
         model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
     
@@ -1138,27 +1235,77 @@ while True:
         if angle>0 :
         
             car.rrl=model[19]
-            car.steerleft(angle)
+            car.steerleft()
             #vektor_speed=[car.speed*,car.speed*]
            
         elif angle<0  :
     
             car.rrr=model[21]
-            car.steerright(angle)
+            car.steerright()
         
     
         model=cv.rotate(model,CENTER,car.dir)
+        
+        dis_close_yellow_cone_1=1000
         
         for i in range (0, p+1):
             
             dis_yellow[i]=cal.calculate_r((car.x,car.y),(list_cone_yellow[i].x-model[7][0][0],list_cone_yellow[i].y-model[7][0][1]))
             draw_yellow_cone[i]=[list_cone_yellow[i].x-cam.x,list_cone_yellow[i].y-cam.y]
+            
+            if dis_yellow[i]<dis_close_yellow_cone_1:
+                
+                yellow_cone_close_1=draw_yellow_cone[i]
+                dis_close_yellow_cone_1=dis_yellow[i]
+
+        
+        dis_close_yellow_cone_2=1000
+        
+        for i in range (0, p+1):
+            
+            if dis_yellow[i]<dis_close_yellow_cone_2 and dis_yellow[i]>dis_close_yellow_cone_1:
+                yellow_cone_close_2=draw_yellow_cone[i]
+                dis_close_yellow_cone_2=dis_yellow[i]
+        
+        dis_between_yellow_cone=cal.calculate_r(yellow_cone_close_1,yellow_cone_close_2)
+        
+        sin_projection_yellow=cal.calculate_projection(True,dis_close_yellow_cone_1,dis_close_yellow_cone_2,dis_between_yellow_cone)[1]
+#        print("sin_projection_yellow:",sin_projection_yellow)
+        
+        if dis_between_yellow_cone<30:
+            sin_projection_yellow=dis_close_yellow_cone_1
+            print("broke",dis_between_yellow_cone)
+            
+        dis_close_blue_cone_1=1000
         
         for i in range (0, q+1):
             
             dis_blue[i]=cal.calculate_r((list_cone_blue[i].x-model[7][0][0],list_cone_blue[i].y-model[7][0][1]),(car.x,car.y))
             draw_blue_cone[i]=[list_cone_blue[i].x-cam.x,list_cone_blue[i].y-cam.y]         
-    
+            if dis_blue[i]<dis_close_blue_cone_1:
+                
+                blue_cone_close_1=draw_blue_cone[i]
+                dis_close_blue_cone_1=dis_blue[i]
+
+        
+        dis_close_blue_cone_2=1000
+        
+        for i in range (0, q+1):
+            
+            if dis_blue[i]<dis_close_blue_cone_2 and dis_blue[i]>dis_close_blue_cone_1:
+                blue_cone_close_2=draw_blue_cone[i]
+                dis_close_blue_cone_2=dis_blue[i]
+                
+        dis_between_blue_cone=cal.calculate_r(blue_cone_close_1,blue_cone_close_2)
+        
+        sin_projection_blue=cal.calculate_projection(True,dis_close_blue_cone_1,dis_close_blue_cone_2,dis_between_blue_cone)[1]
+#        print("sin_projection_blue:",sin_projection_blue)
+        
+        if dis_between_blue_cone<30:
+            
+            sin_projection_blue=dis_close_blue_cone_1
+            print("broke",dis_between_blue_cone)
+            
         for i in range (0, j+1):
             
             draw_path[i]=[list_path_point[i].x-cam.x,list_path_point[i].y-cam.y]
@@ -1214,6 +1361,7 @@ while True:
             if tag_2>path_tag_2[ta_2]:
                 swich_cal_projection=True 
                 base_path_mileage=dis_between_path*ta
+                
             ta_2=ta_2+1
             
         elif count==0:
@@ -1232,233 +1380,22 @@ while True:
             distance_projection_old=distance_projection
 
         speed_projection=distance_projection-distance_projection_old
-#        print("speed_projection:",speed_projection)
-        
-#        if tag==31:
-#            print("speed_projection:",speed_projection)
-#            print("count:",count)
-#            print("path_tag:",path_tag)
-#            
-#            if swich_cal_projection==True:
-#    #        angle=math.degrees(math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom)))
-#                angle_test=math.acos((pow(dis_close_path_1,2)+pow(dis_between_path,2)-pow(dis_close_path_2,2))/(2*dis_close_path_1*dis_between_path))
-#                print("angle_test_short",angle_test)
-#                projektion[0]=dis_close_path_1*math.cos(angle_test)
-#                projektion[1]=dis_close_path_1*math.sin(angle_test)
-#                print("dis_close_path_1",dis_close_path_1)
-#                print("dis_close_path_2",dis_close_path_2)
-#                print("dis_between_path",dis_between_path)
-#                print("projektion[0]",projektion[0])
-#                print("projektion[1]",projektion[1])
-#                print("base_path_mileage:",base_path_mileage)
-#                print("distance_projection:",distance_projection)
-#                print("distance_projection_old:",distance_projection_old)
-#
-#        
-#            else:
-#        #        angle=math.degrees(math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom)))
-#                angle_test=math.acos((pow(dis_close_path_2,2)+pow(dis_between_path,2)-pow(dis_close_path_1,2))/(2*dis_close_path_2*dis_between_path))
-#                print("angle_test_long",angle_test)
-#                
-#                projektion[0]=dis_close_path_2*math.cos(angle_test)
-#                projektion[1]=dis_close_path_2*math.sin(angle_test)
-#                print("dis_close_path_1",dis_close_path_1)
-#                print("dis_close_path_2",dis_close_path_2)
-#                print("dis_between_path",dis_between_path)
-#                print("projektion[0]",projektion[0])
-#                print("projektion[1]",projektion[1])
-#                print("base_path_mileage:",base_path_mileage)
-#                print("distance_projection:",distance_projection)
-#                print("distance_projection_old:",distance_projection_old)
+
         if speed_projection>car.maxspeed:
 #            print("speed_projection:",speed_projection)
             speed_projection=car.maxspeed
-#            print("count:",count)
-#            print("path_tag:",path_tag)
-#            
-#            
-#            if swich_cal_projection==True:
-#    #        angle=math.degrees(math.acos((pow(short,2)+pow(bottom,2)-pow(long,2))/(2*short*bottom)))
-#                angle_test=math.acos((pow(dis_close_path_1,2)+pow(dis_between_path,2)-pow(dis_close_path_2,2))/(2*dis_close_path_1*dis_between_path))
-#                print("angle_test_short",angle_test)
-#                projektion[0]=dis_close_path_1*math.cos(angle_test)
-#                projektion[1]=dis_close_path_1*math.sin(angle_test)
-#                print("dis_close_path_1",dis_close_path_1)
-#                print("dis_close_path_2",dis_close_path_2)
-#                print("dis_between_path",dis_between_path)
-#                print("projektion[0]",projektion[0])
-#                print("projektion[1]",projektion[1])
-#                print("base_path_mileage:",base_path_mileage)
-#                print("distance_projection:",distance_projection)
-#                print("distance_projection_old:",distance_projection_old)
-#                if speed_projection>10:
-#                    while 1:
-#                        
-#                        pass
-#        
-#            else:
-#        #        angle=math.degrees(math.acos((pow(long,2)+pow(bottom,2)-pow(short,2))/(2*long*bottom)))
-#                angle_test=math.acos((pow(dis_close_path_2,2)+pow(dis_between_path,2)-pow(dis_close_path_1,2))/(2*dis_close_path_2*dis_between_path))
-#                print("angle_test_long",angle_test)
-#                
-#                projektion[0]=dis_close_path_2*math.cos(angle_test)
-#                projektion[1]=dis_close_path_2*math.sin(angle_test)
-#                print("dis_close_path_1",dis_close_path_1)
-#                print("dis_close_path_2",dis_close_path_2)
-#                print("dis_between_path",dis_between_path)
-#                print("projektion[0]",projektion[0])
-#                print("projektion[1]",projektion[1])
-#                print("base_path_mileage:",base_path_mileage)
-#                print("distance_projection:",distance_projection)
-#                print("distance_projection_old:",distance_projection_old)
-#                if speed_projection>10:
-#                    while 1:
-#                        
-#                        pass
-#            print("path_tag:",path_tag)
-#            print("path_tag_2:",path_tag_2)
-#            print("speed_projection:",speed_projection)
-#            print("distance_projection:",distance_projection)
-#            print("distance_projection_old:",distance_projection_old)
-#            print("base_path_mileage:",base_path_mileage)
+
             
         if speed_projection<0:
             
             speed_projection=-speed_projection
-#            print("dis_between_path-(distance_projection-base_path_mileage):",dis_between_path-(distance_projection-base_path_mileage))
-#            print("dis_between_path-(distance_projection_old-base_path_mileage):",dis_between_path-(distance_projection_old-base_path_mileage))
-#            print("speed_projection:",speed_projection)
-#            print("distance_projection:",distance_projection)
-#            print("distance_projection_old:",distance_projection_old)
+
         distance_projection_old=distance_projection
-#        print("distance_projection",distance_projection)
-#        print("speed_projection",speed_projection)
-#        print("projection",projection)  
-#        print("path_close_1",path_close_1)  
-#        print("path_close_2",path_close_2)
-#        print("draw_path[1]",draw_path[1])  
-#        print("draw_path[2]",draw_path[2])
-#        print("draw_path[3]",draw_path[3])
 
-#        sin_projection=cal.calculate_sin()
-#        print("path_tag",path_tag)
-#        print("tag length",len(path_tag))
-#        print("path_tag2",path_tag_2)
-#        print("tag2 length",len(path_tag_2))
-
-        
-#        print("dis_close_path_2",dis_close_path_2)  
-#        print("dis_close_path_1",dis_close_path_1)
-#        print("dis_between_path",dis_between_path)
         if coneback:
             
             dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
-        ##start drawing
-#        car.speed=0.1
-        if start_action==True:
-            
-            start_timer=True
-            #print("observation:",observation)
-            #action=RL. choose_action(observation)
-#            print("action:",action)
-            
-            action = actor.choose_action(observation)
-#            print("action:",action)
-#            if action[0]>1 or action[1]>0 or action[0]<-1 or action[1]<-1:
-            
-#            print("action:",action)
-            #exploration
-#            epsilon=np.random.random_sample()
-#            
-#            if epsilon< var1:
-#                
-#                action[0]=np.random.random_sample()*(ACTION_BOUND0[1]-ACTION_BOUND0[0])+ACTION_BOUND0[0]
-#                #print("action[0]:",action[0])
-#                action[1]=np.random.random_sample()*(ACTION_BOUND1[1]-ACTION_BOUND1[0])+ACTION_BOUND1[0]
-#                
-#            else:
-#                action[0]=(action[0]+1)/2*(ACTION_BOUND0[1]-ACTION_BOUND0[0])+ACTION_BOUND0[0]
-                #print("epsilon:",epsilon)
-                #print("var1:",var1)
 
-            action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
-            action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
-            #exploration
-            #print("action:",action)
-            #print("car.speed:",car.speed)
-            
-            if car.speed<=1:
-                action[0]=np.random.random_sample()*(ACTION_BOUND0[1]-0)
-          
-            #print("action:",action)
-
-#                
-            angle_old=angle
-               
-            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
-                
-                angle=angle+action[1]
-            
-            else:
-                
-                action[1]=0
-                
-            for i in range (0, q+1):
-            
-                if dis_blue[i]<safty_distance_turning:
-                    
-                    punish_turning=True
-                    
-                    if dis_blue[i]<safty_distance_impact:
-                        
-                        angle=half_Max_angle
-                        action[1]=half_Max_angle-angle_old
-                        break
-                    
-                    elif angle>0:
-                        
-                        angle=0
-                        action[1]=0-angle_old
-                        break
-                    
-                    if angle<half_Max_angle and angle>-half_Max_angle:
-                        
-                        action[1]=5
-                        angle=angle+action[1]
-                        
-                    break
-                
-            for i in range (0, p+1):
-            
-                if dis_yellow[i]<safty_distance_turning:
-                    
-                    punish_turning=True
-                    
-                    if dis_yellow[i]<safty_distance_impact:
-                        
-                        angle=-half_Max_angle
-                        action[1]=-half_Max_angle-angle_old
-                        break
-                    
-                    elif angle<0:
-                        
-                        angle=0
-                        action[1]=0-angle_old
-                        break
-                     
-                    if angle<half_Max_angle and angle>-half_Max_angle:
-                        
-                        action[1]=-5
-                        angle=angle+action[1]
-                        
-                    break
-                
-            car.accelerate(action[0])
-            #print("car.speed",car.speed)
-            #print("action[0]",action[0])
-            actor.angle.append(action[1])
-            actor.accelerate.append(action[0])
-        
         ##draw background
         if Render==True:
             
@@ -1581,16 +1518,28 @@ while True:
         for i in range (0, q+1):
             
             if dis_blue[i]<bound_lidar:
-                
-                pygame.draw.line(canvas, (0,255,255), model[7][0],draw_blue_cone[i],2)
-            
+                if draw_blue_cone[i]==blue_cone_close_1 or draw_blue_cone[i]==blue_cone_close_2:
+                    
+                    pygame.draw.line(canvas, (255,255,0), model[7][0],draw_blue_cone[i],5)
+                    
+                else:
+                    
+                    pygame.draw.line(canvas, (0,255,255), model[7][0],draw_blue_cone[i],2)
+        
         for i in range (0, p+1):
             
             if dis_yellow[i]<bound_lidar:
                 
-                pygame.draw.line(canvas, (255,255,0), model[7][0],draw_yellow_cone[i],2)
+                if draw_yellow_cone[i]==yellow_cone_close_1 or draw_yellow_cone[i]==yellow_cone_close_2:
+                    
+                    pygame.draw.line(canvas, (0,255,255), model[7][0],draw_yellow_cone[i],5)
+                    
+                else:  
+                    
+                    pygame.draw.line(canvas, (255,255,0), model[7][0],draw_yellow_cone[i],2)
         ##draw distance to cones
-        
+        pygame.draw.line(canvas, (0,255,255), yellow_cone_close_1,yellow_cone_close_2,5)
+        pygame.draw.line(canvas, (255,255,0), blue_cone_close_1,blue_cone_close_2,5)
         
         ##draw path
         for i in range (1, j+1):
@@ -1759,11 +1708,20 @@ while True:
             
             
                 
-            reward=speed_projection*speed_faktor+speed_projection*(-40)*np.tanh(0.2*(v_distance_projection-(half_path_wide-safty_distance_turning)))
-           
+            if v_distance_projection>5:
+                
+                reward=speed_projection*speed_faktor+speed_projection*((-20)*np.tanh(0.1*(v_distance_projection-9))+11)
+                
+            else:
+                
+                reward=speed_projection*speed_faktor+speed_projection*((-20)*np.tanh(0.1*(5-9))+11)
+                
+                
 #            print("reward",reward)
+#            print("v_distance_projection:",reward/speed_projection-speed_faktor)
+#            print("speed_projection",speed_projection)
+#            print("old reward:",-speed_projection*20*(car.maxspeed/car.acceleration)/v_distance_projection)
             
-
             for i in range (0, q+1):
             
                 if dis_blue[i]<collision_distance:
@@ -1780,8 +1738,8 @@ while True:
                 
                 if dis_back<collision_distance*2:
                     
-                    collide=True
-#            if M.pointer > MEMORY_CAPACITY and punish_turning==True:
+                    collide_finish=True
+
 #            if punish_turning==True:
 #                reward=-math.sqrt(reward**2)
 #                idx_punish = M.pointer % M.capacity
@@ -1802,26 +1760,26 @@ while True:
 ##            print("idx_punish:",idx_punish)   
             reward_sum=reward_sum+reward
 #            print("reward_sum:",reward_sum)    
-            if collide==True or count/COUNT_FREQUENZ>episode_time: 
+            if collide==True or count/COUNT_FREQUENZ>episode_time or collide_finish==True: 
                 
                 if collide==True :
                     
                     reward=-pow(car.speed,4)
 #                    
 #                    
-#                    idx_punish = M.pointer % M.capacity
-#                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
-#                    for t in range(0,len(punished_reward)):
-#                        
-##                            if punished_reward[t]>0:
-#                            
-#                        reward_sum=reward_sum-math.sqrt(punished_reward[t]**2)
-#                        punished_reward[t]=punished_reward[t]-math.sqrt(punished_reward[t]**2)
-#
-#    #                print("punished_reward_new",punished_reward)
-#                    M.write(idx_punish,2*punish_batch_size,punished_reward)
-#                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
-#    #                print("punished_reward_new",punished_reward)
+                    idx_punish = M.pointer % M.capacity
+                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+                    for t in range(0,len(punished_reward)):
+                        
+#                            if punished_reward[t]>0:
+                            
+                        reward_sum=reward_sum-math.sqrt(punished_reward[t]**2)
+                        punished_reward[t]=punished_reward[t]-math.sqrt(punished_reward[t]**2)
+
+    #                print("punished_reward_new",punished_reward)
+                    M.write(idx_punish,2*punish_batch_size,punished_reward)
+                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
+    #                print("punished_reward_new",punished_reward)
 #                
                     
                 car.impact()
@@ -1847,6 +1805,7 @@ while True:
                 angle=0
                 count=0
                 collide=False
+                collide_finish=False
                 summary=True
 #            print("reward:",reward)
             #RL.store_transition(observation, action, reward)
@@ -1856,10 +1815,15 @@ while True:
             
             #print("MEMORY_CAPACITY:",M.pointer)
             if M.pointer > MEMORY_CAPACITY:
-                var1 = max([var1*0.99999, VAR_MIN])    # decay the action randomness
-                var2 = max([var2*0.99999, VAR_MIN]) 
-#                var1 = max([var1*0.9999999, VAR_MIN])    # decay the action randomness
-#                var2 = max([var2*0.9999999, VAR_MIN]) 
+                if var1>VAR_MIN:
+                    
+                    var1 = max([var1*0.99999, VAR_MIN])    # decay the action randomness
+                    var2 = max([var2*0.99999, VAR_MIN]) 
+                    
+                else:
+                    
+                    var1 = max([var1*0.999999, VAR_MIN_updated])    # decay the action randomness
+                    var2 = max([var2*0.999999, VAR_MIN_updated]) 
 #                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
 #                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
                 b_M = M.sample(BATCH_SIZE)
@@ -1891,6 +1855,8 @@ while True:
         ##update screen
         
     else:
+        n_model=n_model+1
+        MODE.append(str(n_model))
         print("var1:",var1,"var2:",var2)
         print("MEMORY_pointer:",M.pointer)
         print("MEMORY_CAPACITY:",M.capacity)
@@ -1901,7 +1867,18 @@ while True:
         ckpt_path = os.path.join( './Model/Model_'+MODE[n_model], 'DDPG.ckpt')
         save_path = saver.save(sess, ckpt_path, write_meta_graph=False)
         print("\nSave Model %s\n" % save_path)
-##         
+        
+        file = os.path.join( './Model/Model_'+MODE[n_model], 'episode_reward.txt')
+        fw=open(file, mode='w')
+#     
+
+        reward_str= str(running_reward)
+        fw.seek(0,0)
+        fw.write( reward_str)
+
+        
+
+        
 #        reader = pywrap_tensorflow.NewCheckpointReader(ckpt_path)
 #        var_to_shape_map = reader.get_variable_to_shape_map()
 #        tensor=reader.get_variable_to_dtype_map()
@@ -1912,14 +1889,6 @@ while True:
         #print("RL.r_set:",RL.r_set)
         #rs_sum = sum(RL.r_set)
         
-        #if 'running_reward' not in globals():
-            
-            #running_reward = rs_sum
-
-        #else:
-            #running_reward = running_reward * 0.01 + rs_sum * 0.99
-            
-    
 
         if running_reward_max<running_reward and ep_total>1:
             
@@ -2005,8 +1974,6 @@ while True:
         print("totaol train:",ep_total)
         print("LOAD:",LOAD)
         ep_lr=ep_lr+1
-        n_model=n_model+1
-        MODE.append(str(n_model))
         print("lr ep :",ep_lr)
         summary=False
         if ep_lr>10000:
