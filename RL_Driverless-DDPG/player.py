@@ -83,7 +83,7 @@ class Player(pygame.sprite.Sprite):
         self.dir = 0
         self.speed = 0.0
         self.maxspeed = 5
-        self.minspeed = -0.5
+        self.minspeed = 0
         self.acceleration = 0.5
         self.deacceleration = 1.5
         self.softening = 0.04
