@@ -19,6 +19,7 @@ import rospy
 import os
 #import cone
 #import path_m
+import tools
 import RL
 import time
 #import math
@@ -93,24 +94,32 @@ rr_idx=0
 #set of runing reward
 count=0
 #minimal exploration wide of action
-VAR_MIN = 0.1
-VAR_MIN_updated=0.01
+VAR_MIN_0 = 0.01
+VAR_MIN_updated_0=0.001
+VAR_MIN_1 = 0.01
+VAR_MIN_updated_1=0.001
+VAR_MIN_2 = 0.02
+VAR_MIN_updated_2=0.002
 #minimal exploration wide of action
 #initial exploration wide of action
-var1 = 1
-var2 = 1
+var0 = 0.1
+var1 = 0.1
+var2 = 0.1
 #var1 = 0.1
 #var2 = 0.1
 #initial exploration wide of action
 #dimension of action
-ACTION_DIM = 2
+ACTION_DIM = 6
 #dimension of action
 #action boundary
 ACTION_BOUND0 = np.array([0,1])
-ACTION_BOUND1 = np.array([-1,1])
+ACTION_BOUND1 = np.array([0,1])
+ACTION_BOUND2 = np.array([-1,1])
+
 #action boundary
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 ACTION_BOUND=np.array([0.5,1])
+ACTION_BOUND=np.array([0.5,0.5,1,1,1,1])
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 # learning rate for actor
 LR_A = 1e-6
@@ -134,6 +143,14 @@ MEMORY_CAPACITY = 1024
 #size of memory slice
 BATCH_SIZE = 128
 #size of memory slice
+#after this learning number of main net update the target net of actor
+REPLACE_ITER_A = 1024
+#after this learning number of main net update the target net of actor
+#after this learning number of main net update the target net of Critic
+REPLACE_ITER_C = 1024
+#after this learning number of main net update the target net of Critic
+probability=[]
+
 #constant of distance measure
 bound_lidar=20
 #constant of distance measure
@@ -166,7 +183,7 @@ critic = RL.Critic(sess, input_dim, ACTION_DIM, LR_C, rd, actor.a, actor.a_)
 actor.add_grad_to_graph(critic.a_grads)
 
 M = RL.Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
-saver = RL.Saver(sess,LOAD,actor,critic,all_var)
+saver = tools.Saver(sess,LOAD,actor,critic,all_var)
 
 while not rospy.is_shutdown():
     
@@ -375,11 +392,11 @@ while not rospy.is_shutdown():
 #        if car_controls.steering<1 and car_controls.steering>-1 and car_controls.steering+action[1]<1 and car_controls.steering+action[1]>-1:
         if car_controls.steering<1 and car_controls.steering>-1:
             
-            car_controls.steering=action[1]
+            car_controls.steering=float(action[1])
              
         if car_state.speed<=0.5:
             
-            action[0]=np.random.random_sample()*(ACTION_BOUND0[1]-0)
+            action[0]=float(np.random.random_sample()*(ACTION_BOUND0[1]-0))
           
             #print("action:",action)
 
@@ -576,6 +593,7 @@ while not rospy.is_shutdown():
             time_stamp = time.time()
             car_controls.steering=0
             car_controls.throttle=0
+            car_controls.brake=0
             count=0
             collision=False
             summary=True

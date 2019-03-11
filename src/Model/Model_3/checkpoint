@@ -1,4 +1,0 @@
-model_checkpoint_path: "DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_1/DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_2/DDPG.ckpt"
-all_model_checkpoint_paths: "DDPG.ckpt"

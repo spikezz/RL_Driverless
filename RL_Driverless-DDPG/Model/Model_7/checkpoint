@@ -1,8 +1,0 @@
-model_checkpoint_path: "DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_1/DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_2/DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_3/DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_4/DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_5/DDPG.ckpt"
-all_model_checkpoint_paths: "../Model_6/DDPG.ckpt"
-all_model_checkpoint_paths: "DDPG.ckpt"

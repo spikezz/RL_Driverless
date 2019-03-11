@@ -86,7 +86,7 @@ class Player(pygame.sprite.Sprite):
         self.minspeed = 0
         self.acceleration = 0.5
         self.deacceleration = 1.5
-        self.softening = 0.04
+        self.softening = 0.01
         self.steering = 1.60
         self.tracks = False
         self.wheelangle=0.0
@@ -162,14 +162,11 @@ class Player(pygame.sprite.Sprite):
     def soften(self):
         
         
-        if self.speed > 0.04 :
+        if self.speed > 0 and self.speed-self.softening >=0:
             self.speed -= self.softening
-        elif self.speed < -0.04:
-            self.speed += self.softening
-        else:
-            self.speed=0
-                
-
+        elif self.speed-self.softening <0:
+            self.speed=0     
+            
 #Accelerate the vehicle
     def accelerate(self,a):
         if self.speed <=self.maxspeed and self.speed >=self.minspeed and self.speed + a>=self.minspeed and self.speed + a<=self.maxspeed:

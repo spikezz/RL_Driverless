@@ -11,6 +11,7 @@ import canvas as cv
 import calculation as cal
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.special as ss
 import os
 import shutil
 from loader import load_image
@@ -50,7 +51,8 @@ class Actor(object):
         self.angle=[]
         self.accelerate=[]
         self.brake=[]
-        self.ba_switch=[]
+        self.writer = tf.summary.FileWriter("/home/spikezz/Driverless/aktuelle zustand/RL_Driverless/RL_Driverless-DDPG/logs")
+        
         
         with tf.variable_scope('Actor'):
             # input s, output a
@@ -67,29 +69,28 @@ class Actor(object):
         with tf.variable_scope(scope):
             #init_w = tf.contrib.layers.xavier_initializer()
             init_w=tf.random_uniform_initializer(-0.23,0.23)
-#            init_w=tf.random_uniform_initializer(-1,1)
-#            init_w=tf.random_normal_initializer()
             init_b=tf.random_uniform_initializer(-1,1)
-#            init_b = tf.constant_initializer(0.000)
-            layer1 = tf.layers.dense(s, H1, activation=tf.nn.relu,kernel_initializer=init_w, bias_initializer=init_b, name='l1',trainable=trainable)
-            layer2 = tf.layers.dense(layer1, H1, activation=tf.nn.relu,kernel_initializer=init_w, bias_initializer=init_b, name='l2',trainable=trainable)
-#            layer3 = tf.layers.dense(layer2, H1, activation=tf.nn.relu,kernel_initializer=init_w, bias_initializer=init_b, name='l3',trainable=trainable)
+            
 #            layer1 = tf.layers.dense(s, H1, activation=tf.nn.relu,kernel_initializer=init_w, bias_initializer=init_b, name='l1',trainable=trainable)
 #            layer2 = tf.layers.dense(layer1, H1, activation=tf.nn.relu,kernel_initializer=init_w, bias_initializer=init_b, name='l2',trainable=trainable)
-            #layer3 = tf.layers.dense(layer2, H2, activation=tf.nn.relu6,kernel_initializer=init_w, bias_initializer=init_b, name='l3',trainable=trainable)
+            layer1 = tf.layers.dense(s, H1, activation=tf.nn.softplus,kernel_initializer=init_w, bias_initializer=init_b, name='l1',trainable=trainable)
+            layer2 = tf.layers.dense(layer1, H1, activation=tf.nn.softplus,kernel_initializer=init_w, bias_initializer=init_b, name='l2',trainable=trainable)
+           
             with tf.variable_scope('a'):
+                
                 actions = tf.layers.dense(layer2, self.a_dim, activation=tf.nn.tanh, kernel_initializer=init_w,
                                           name='a', trainable=trainable)
+#                actions = tf.layers.dense(layer2, self.a_dim, activation=tf.nn.softsign, kernel_initializer=init_w,
+#                                          name='a', trainable=trainable)
                 scaled_a = tf.multiply(actions, self.action_bound, name='scaled_a')  # Scale output to -action_bound to action_bound
         
         return scaled_a
 #        return actions
     def learn(self, s):   # batch update
         
-        self.sess.run(self.soft_replace)
-        
+        self.sess.run(self.soft_replace)        
         self.sess.run(self.train_op, feed_dict={S: s})
-#        if self.t_replace_counter % self.t_replace_iter == 0:
+
         if self.t_replace_counter == self.t_replace_iter:
             self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
             self.t_replace_counter = 0
@@ -120,8 +121,11 @@ class Critic(object):
         self.gamma = gamma
         self.t_replace_iter = t_replace_iter
         self.t_replace_counter = 0
+        self.loss_step=0
         self.Momentum=0.9
-       
+#        self.sess=tf.Session()
+        self.writer = tf.summary.FileWriter("/home/spikezz/Driverless/aktuelle zustand/RL_Driverless/RL_Driverless-DDPG/loss")
+        
         with tf.variable_scope('Critic'):
             # Input (s, a), output q
             self.a = a
@@ -137,12 +141,14 @@ class Critic(object):
             self.target_q = R + self.gamma * self.q_
 
         with tf.variable_scope('TD_error'):
+            
             self.loss = tf.reduce_mean(tf.squared_difference(self.target_q, self.q))
-        tf.summary.scalar('loss_', self.loss) 
+            self.loss_scalar=tf.summary.scalar('loss_', self.loss)
+            
         with tf.variable_scope('C_train'):
 #            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
             self.train_op = tf.train.MomentumOptimizer(self.lr,self.Momentum).minimize(self.loss)
-            
+
         with tf.variable_scope('a_grad'):
             self.a_grads = tf.gradients(self.q, a)[0]   # tensor of gradients of each sample (None, a_dim)
         
@@ -152,22 +158,22 @@ class Critic(object):
         with tf.variable_scope(scope):
             #init_w = tf.contrib.layers.xavier_initializer()
             init_w=tf.random_uniform_initializer(-0.23,0.23)
-#            init_b = tf.constant_initializer(0.00)
-#            init_w=tf.random_normal_initializer()
             init_b=tf.random_uniform_initializer(-1,1)
+            
             with tf.variable_scope('l1'):
-                n_l1 = 200
+                n_l1 = H1
                 w1_s = tf.get_variable('w1_s', [self.s_dim, n_l1], initializer=init_w, trainable=trainable)
                 w1_a = tf.get_variable('w1_a', [self.a_dim, n_l1], initializer=init_w, trainable=trainable)
                 b1 = tf.get_variable('b1', [1, n_l1], initializer=init_b, trainable=trainable)
                 net = tf.nn.relu(tf.matmul(s, w1_s) + tf.matmul(a, w1_a) + b1)
+                
             layer1 = tf.layers.dense(net, H1, activation=tf.nn.relu,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l2',
                                   trainable=trainable)
             layer2 = tf.layers.dense(layer1, H1, activation=tf.nn.relu,
                                   kernel_initializer=init_w, bias_initializer=init_b, name='l3',
                                   trainable=trainable)
-            layer3 = tf.layers.dense(layer2, H1, activation=tf.nn.tanh,
+            layer3 = tf.layers.dense(layer2, H1, activation=tf.nn.relu,
                       kernel_initializer=init_w, bias_initializer=init_b, name='l4',
                       trainable=trainable)
 #            layer1 = tf.layers.dense(net, H1, activation=tf.nn.relu,
@@ -181,19 +187,22 @@ class Critic(object):
 #                      trainable=trainable)
 
             with tf.variable_scope('q'):
-                q = tf.layers.dense(layer3,1,activation=tf.nn.tanh,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
+#                q = tf.layers.dense(layer3,1,activation=tf.nn.tanh,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
+                q = tf.layers.dense(layer3,1,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
+       
         return q
 
     def learn(self, s, a, r, s_):
         
         self.sess.run(self.soft_replace)
-        self.sess.run(self.train_op, feed_dict={S: s, self.a: a, R: r, S_: s_})
-#        if self.t_replace_counter % self.t_replace_iter == 0:        
+        self.loss_summary=self.sess.run([self.train_op,self.loss_scalar], feed_dict={S: s, self.a: a, R: r, S_: s_})[1]  
+        self.writer.add_summary(self.loss_summary,self.loss_step)
         if self.t_replace_counter == self.t_replace_iter:
             self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
             self.t_replace_counter = 0
         self.t_replace_counter += 1
-
+        self.loss_step+=1
+#        print("self.loss_step",self.loss_step)
 
 class Memory(object):
     
@@ -216,7 +225,6 @@ class Memory(object):
     
     def read(self,idx,punish_batch_size):
         
-#        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
         idxs = np.zeros(punish_batch_size) 
         i=0
         for t in range(idx-punish_batch_size,idx):
@@ -228,8 +236,6 @@ class Memory(object):
 #        print("idxs",idxs)
         return self.data[idxs, :]
     def write(self,idx,punish_batch_size,punished_reward):
-        
-#        assert self.pointer >= self.capacity, 'Memory has not been fulfilled'
         
         idxs = np.zeros(punish_batch_size) 
         i=0
@@ -597,10 +603,10 @@ start_action=False
 Render=True
 #Rendering star
 # learning rate for actor
-LR_A = 1e-4
+LR_A = 1e-6
 # learning rate for actor
 # learning rate for critic
-LR_C = 1e-4
+LR_C = 1e-6
 # learning rate for critic
 # reward discount
 rd = 0.9
@@ -620,41 +626,38 @@ BATCH_SIZE =128
 #minimal exploration wide of action
 VAR_MIN_updated_0 = 0.001
 VAR_MIN_0 = 0.01
-VAR_MIN_updated_1 = 0.01
-VAR_MIN_1 = 0.1
-VAR_MIN_updated_2 = 0.001
-VAR_MIN_2 = 0.01
-VAR_MIN_updated_3 = 0.0001
-VAR_MIN_3 = 0.00
-VAR_MIN_updated_4 = 0.0001
-VAR_MIN_4 = 0.001
-VAR_MIN_updated_5 = 0.0001
-VAR_MIN_5 = 0.001
+VAR_MIN_updated_1 = 0.001
+VAR_MIN_1 = 0.01
+VAR_MIN_updated_2 = 0.01
+VAR_MIN_2 = 0.1
+#VAR_MIN_updated_3 = 0.0001
+#VAR_MIN_3 = 0.00
+#VAR_MIN_updated_4 = 0.0001
+#VAR_MIN_4 = 0.001
+#VAR_MIN_updated_5 = 0.0001
+#VAR_MIN_5 = 0.001
 #minimal exploration wide of action
 #initial exploration wide of action
+var0 = 0.1
 var1 = 0.1
 var2 = 1
-var3 = 0.1
-var4 = 0.04
-var5 = 0.04
-var6 = 0.04
+#var4 = 0.04
+#var5 = 0.04
+#var6 = 0.04
 #initial exploration wide of action
 #dimension of action
 ACTION_DIM = 6
 #dimension of action
 #action boundary
 ACTION_BOUND0 = np.array([0,1])
-ACTION_BOUND1 = np.array([-45,45])
-ACTION_BOUND2 = np.array([-1,0])
-#ACTION_BOUND3 = np.array([0,1])
-#ACTION_BOUND3 = np.array([0,1])
-#ACTION_BOUND3 = np.array([0,1])
+ACTION_BOUND1 = np.array([-1,0])
+ACTION_BOUND2 = np.array([-45,45])
 #action boundary
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 #ACTION_BOUND=np.array([0.5,5])
-ACTION_BOUND=np.array([0.5,5,0.5,1,1,1])
+ACTION_BOUND=np.array([0.5,0.5,5,1,1,1])
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
-random_u=[]
+probability=[]
 
 #max reward reset
 max_reward_reset=0
@@ -787,10 +790,12 @@ for pa in path_man:
 #
 
 sess = tf.Session()
-#merged = tf.summary.merge_all()
+
 actor = Actor(sess, ACTION_DIM, ACTION_BOUND, LR_A, REPLACE_ITER_A)
 critic = Critic(sess, input_dim, ACTION_DIM, LR_C, rd, REPLACE_ITER_C, actor.a, actor.a_)
 actor.add_grad_to_graph(critic.a_grads)
+
+
 
 M = Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
 
@@ -829,6 +834,7 @@ if LOAD:
     saver.restore(sess, tf.train.latest_checkpoint(di_load))
     
 else:
+#    if os.path.isdir(di_load): shutil.rmtree(di_load)
     sess.run(tf.global_variables_initializer())
     os.mkdir(di_load)
         
@@ -1020,7 +1026,7 @@ while True:
                     
                 if event.key == K_e:
                     
-                    #ep_lr=0
+                    ep_lr=0
                     max_reward_reset=max_reward_reset+1
                     
                 if event.unicode == 'd':
@@ -1033,17 +1039,17 @@ while True:
                         
                         debug=False
 
-#                if event.unicode == 'd':
-#                    pass
-##                    lr=lr/10
-##                    RL.learning_rate=lr
-##                    print("max lr:",lr)
-#
-#                if event.unicode == 'm':
-#                    pass
-##                    lr=lr*10
-##                    RL.learning_rate=lr
-##                    print("max lr:",lr)
+                if event.unicode == 'm':
+
+                    actor.lr=actor.lr/10
+                    critic.lr=critic.lr/10
+                    print("actor learning rate:",actor.lr,"critic learning rate:",critic.lr)
+
+                if event.unicode == 'n':
+                    
+                    actor.lr=actor.lr*10
+                    critic.lr=critic.lr*10
+                    print("actor learning rate:",actor.lr,"critic learning rate:",critic.lr)
 #                
                 if event.unicode == 'o':
 
@@ -1205,41 +1211,45 @@ while True:
             start_timer=True
             
             action = actor.choose_action(observation)
+            probability=ss.softmax(np.array([action[3],action[4],action[5]]))
 #            print("actionout",action)
 
             action[0] =action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
-            action[2] =action[2] -(ACTION_BOUND2[1]-ACTION_BOUND2[0])/2
-#            action[3] =action[3] +(ACTION_BOUND3[1]-ACTION_BOUND3[0])/2
+            action[1] =action[1] -(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+
             action_ori0.append(action[0])
             action_ori1.append(action[1])
             action_ori2.append(action[2])
-            action_ori3.append(action[3])
-            action_ori4.append(action[4])
-            action_ori5.append(action[5])
+            action_ori3.append(probability[0])
+            action_ori4.append(probability[1])
+            action_ori5.append(probability[2])
+            
+#            print("probability",probability)
+#            action_ori3.append(action[3])
+#            action_ori4.append(action[4])
+#            action_ori5.append(action[5])
 #            print("action1",action)
-            action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
-            action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
-            action[2] = np.clip(np.random.normal(action[2], var3), *ACTION_BOUND2)
-#            action[3] = np.clip(np.random.normal(action[3], var4), *ACTION_BOUND2)
-#            action[4] = np.clip(np.random.normal(action[4], var5), *ACTION_BOUND2)
-#            action[5] = np.clip(np.random.normal(action[5], var6), *ACTION_BOUND2)
-#            a
+            
+            action[0] = np.clip(np.random.normal(action[0], var0), *ACTION_BOUND0)
+            action[1] = np.clip(np.random.normal(action[1], var1), *ACTION_BOUND1)
+            action[2] = np.clip(np.random.normal(action[2], var2), *ACTION_BOUND2)
+         
             
 #            if car.speed<=1 and action[0]<0:
 #                action[0]=np.random.random_sample()*ACTION_BOUND0[1]
 #                print("action[0]:",action[0])
 
-                
+               
             angle_old=angle
             
                
-            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
+            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[2]<half_Max_angle and angle+action[2]>-half_Max_angle:
                 
-                angle=angle+action[1]
+                angle=angle+action[2]
             
             else:
                 
-                action[1]=0
+                action[2]=0
 #            
             if sin_projection_blue<safty_distance_turning:
                 
@@ -1248,7 +1258,7 @@ while True:
                 if sin_projection_blue<safty_distance_impact:
                     
                     angle=half_Max_angle
-                    action[1]=half_Max_angle-angle_old             
+                    action[2]=half_Max_angle-angle_old             
 #                    while debug:
 #                        for event in pygame.event.get():
 #                            if event.unicode == '\d':
@@ -1256,13 +1266,13 @@ while True:
                 
                 elif angle<half_Max_angle and angle>=0:
                     
-                    action[1]=1
-                    angle=angle+action[1]
+                    action[2]=1
+                    angle=angle+action[2]
                     
                 elif angle>half_Max_angle*0.9 or angle<0:
                     
                     angle=0
-                    action[1]=0-angle_old
+                    action[2]=0-angle_old
 
                     
             elif sin_projection_yellow<safty_distance_turning:
@@ -1272,58 +1282,38 @@ while True:
                 if sin_projection_yellow<safty_distance_impact:
                     
                     angle=-half_Max_angle
-                    action[1]=-half_Max_angle-angle_old            
+                    action[2]=-half_Max_angle-angle_old            
 #                    while debug:
 #                        for event in pygame.event.get():
 #                            if event.unicode == '\d':
 #                                debug=False
                 elif angle>-half_Max_angle and angle<=0:
                     
-                    action[1]=-1
-                    angle=angle+action[1]   
+                    action[2]=-1
+                    angle=angle+action[2]   
                     
                 elif angle<-half_Max_angle*0.9 or angle>0:
                     
                     angle=0
-                    action[1]=0-angle_old
-
-             
-      
-#            elif angle<half_Max_angle and angle>-half_Max_angle and angle+action[1]<half_Max_angle and angle+action[1]>-half_Max_angle:
-#                
-#                angle=angle+action[1]
-#            
-#            else:
-#                
-#                action[1]=0
-                
-#            print("action2",action)
-            ru= np.random.random_sample()     
-            random_u.append(ru) 
-            
-            if ru <= action[3]:
-                
-                car.accelerate(action[2])#bremsen
-                actor.brake.append(action[2])
-                actor.accelerate.append(0)
-#                if M.pointer > MEMORY_CAPACITY:
-#                    print("rub:",ru,"action[3]:",action[3])
-#                    print("action[2]:",action)
-#                    print("actor.brake:",actor.brake)
-#                    print("actor.accelerate:",actor.accelerate)
-            else:
+                    action[2]=0-angle_old
+                    
+            actor.angle.append(action[2])
+            choice=np.random.choice(range(len(probability)),p=probability)
+#            print("sess.run(probability):",sess.run(probability))
+#            print("choice:",choice)
+            if choice==0:
                 car.accelerate(action[0])#beschleunigen
                 actor.accelerate.append(action[0])
                 actor.brake.append(0)
-#                if M.pointer > MEMORY_CAPACITY:
-#                    print("rua:",ru,"action[3]:",action[3])
-#                    print("action[0]:",action)
-#                    print("actor.brake:",actor.brake)
-#                    print("actor.accelerate:",actor.accelerate)
- 
-            actor.angle.append(action[1])
-            actor.ba_switch.append(action[3])
-        
+            elif choice==1:
+                car.accelerate(action[1])#bremsen
+                actor.brake.append(action[1])
+                actor.accelerate.append(0)
+                
+            elif choice==2:
+                actor.accelerate.append(0)
+                actor.brake.append(0)
+                
         car.wheelangle=angle
         model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
     
@@ -1801,7 +1791,7 @@ while True:
 #            
 #                reward=speed_projection*speed_faktor+speed_projection*40*(car.maxspeed/car.acceleration)/10
 
-            reward=speed_projection
+            reward=np.exp(speed_projection)
 #                
 #            if round(v_distance_projection,2)>5:
 #                
@@ -1940,53 +1930,30 @@ while True:
             
             #print("MEMORY_CAPACITY:",M.pointer)
             if M.pointer > MEMORY_CAPACITY:
-                if var1>VAR_MIN_0:
+                if var0>VAR_MIN_0:
                     
-                    var1 = max([var1*0.99999, VAR_MIN_0])    # decay the action randomness
-                    
-                else:
-                    
-                    var1 = max([var1*0.999999, VAR_MIN_updated_0])    # decay the action randomness
-                    
-                if var2>VAR_MIN_1:
-                    
-                    var2 = max([var2*0.99999, VAR_MIN_1]) 
+                    var0 = max([var0*0.99999, VAR_MIN_0])    # decay the action randomness
                     
                 else:
                     
-                    var2 = max([var2*0.999999, VAR_MIN_updated_1])
+                    var0 = max([var0*0.999999, VAR_MIN_updated_0])    # decay the action randomness
+                    
+                if var1>VAR_MIN_1:
+                    
+                    var1 = max([var1*0.99999, VAR_MIN_1]) 
+                    
+                else:
+                    
+                    var1 = max([var1*0.999999, VAR_MIN_updated_1])
                      
-                if var3>VAR_MIN_2:
+                if var2>VAR_MIN_2:
                     
-                    var3 = max([var3*0.99999, VAR_MIN_2]) 
-                    
-                else:
-                    
-                    var3 = max([var3*0.999999, VAR_MIN_updated_2])
-                    
-                if var4>VAR_MIN_3:
-                    
-                    var4 = max([var4*0.99999, VAR_MIN_3]) 
+                    var2 = max([var2*0.99999, VAR_MIN_2]) 
                     
                 else:
                     
-                    var4 = max([var4*0.999999, VAR_MIN_updated_3])
-                
-                 if var5>VAR_MIN_4:
+                    var2 = max([var2*0.999999, VAR_MIN_updated_2])
                     
-                    var5 = max([var5*0.99999, VAR_MIN_4]) 
-                    
-                else:
-                    
-                    var5 = max([var5*0.999999, VAR_MIN_updated_4])
-                
-                 if var6>VAR_MIN_5:
-                    
-                    var6 = max([var6*0.99999, VAR_MIN_5]) 
-                    
-                else:
-                    
-                    var6 = max([var6*0.999999, VAR_MIN_updated_5])
 
                 b_M = M.sample(BATCH_SIZE)
 #                print("BATCH_SIZE:",BATCH_SIZE)
@@ -2019,9 +1986,12 @@ while True:
     else:
         n_model=n_model+1
         MODE.append(str(n_model))
-        print("var1:",var1,"var2:",var2,"var3:",var3,"var4:",var4,"var5:",var5,"var6:",var6)
+#        print(MODE)
+        di = './Model/Model_'+MODE[n_model]
+        print("var0:",var0,"var1:",var1,"var2:",var2)
         print("MEMORY_pointer:",M.pointer)
         print("MEMORY_CAPACITY:",M.capacity)
+        print("learning rate actor:",actor.lr,"learning rate critic:",critic.lr)
         if os.path.isdir(di): shutil.rmtree(di)
         os.mkdir(di)
         ckpt_path = os.path.join( './Model/Model_'+MODE[n_model], 'DDPG.ckpt')
@@ -2030,13 +2000,13 @@ while True:
         
         file = os.path.join( './Model/Model_'+MODE[n_model], 'episode_reward.txt')
         fw=open(file, mode='+w')
-#     
-
-        reward_str= str(running_reward)
+        reward_ep_mean=np.mean(reward_ep)
+        reward_one_ep_mean.append(reward_ep_mean)
+        reward_str= 'running_reward:'+str(running_reward)+'\n'+'reward_ep_mean:'+str(reward_ep_mean)
         fw.seek(0,0)
         fw.write( reward_str)
 
-        merged = tf.summary.merge_all()
+ 
         current_path = os.getcwd()
         model_dir = os.path.join(current_path, 'logs')
         
@@ -2064,7 +2034,7 @@ while True:
             ep_lr=0
             max_reward_reset=max_reward_reset+1
         
-        reward_one_ep_mean.append(np.mean(reward_ep))
+#        reward_one_ep_mean.append(np.mean(reward_ep))
 
         print("running_reward:",running_reward)
         print("max_running_reward:",running_reward_max)
@@ -2089,83 +2059,99 @@ while True:
         #print("rr:",rr)
         #vt=RL.learn(car.maxspeed,car.acceleration)
         #print("RL.learn:",vt)
-
-
         
-        plt.subplot(721)
+        #accelerate 
+        plt.figure()
+        plt.subplot(211)
         plt.plot(action_ori0)  
         plt.xlabel('steps')
         plt.ylabel('a0 output')
-
-        plt.subplot(722)
-        plt.plot(action_ori1)  
-        plt.xlabel('steps')
-        plt.ylabel('a1 output')
-
-        plt.subplot(723)
+        plt.subplot(212)
         plt.plot(actor.accelerate)  
         plt.xlabel('steps')
         plt.ylabel('accelerate')
-
-        plt.subplot(724)
-        plt.plot(actor.angle)  
-        plt.xlabel('steps')
-        plt.ylabel('angle')
+        #accelerate      
         
-        
-        plt.subplot(725)
-        plt.plot(action_ori2)  
+        #brake
+        plt.figure()
+        plt.subplot(211)
+        plt.plot(action_ori1)  
         plt.xlabel('steps')
-        plt.ylabel('a2 output')
-
-        plt.subplot(726)
-        plt.plot(action_ori3)  
-        plt.xlabel('steps')
-        plt.ylabel('a3 output')
-        
-        plt.subplot(727)
+        plt.ylabel('a1 output')
+        plt.subplot(212)
         plt.plot(actor.brake)  
         plt.xlabel('steps')
         plt.ylabel('brake')
+        #brake
         
-        plt.subplot(728)
-        plt.plot(actor.ba_switch)  
+        #steering angle
+        plt.figure()
+        plt.subplot(211)
+        plt.plot(action_ori2)  
         plt.xlabel('steps')
-        plt.ylabel('ba_switch')
+        plt.ylabel('a2 output')
+        plt.subplot(212)
+        plt.plot(actor.angle)  
+        plt.xlabel('steps')
+        plt.ylabel('angle')
+        #steering angle
         
-        plt.subplot(729)
+        #probability
+        plt.figure()
+        plt.subplot(311)
+        plt.plot(action_ori3)  
+        plt.xlabel('steps')
+        plt.ylabel('p accelerate')
+        plt.subplot(312)
+        plt.plot(action_ori4)  
+        plt.xlabel('steps')
+        plt.ylabel('p brake')
+        plt.subplot(313)
+        plt.plot(action_ori5)  
+        plt.xlabel('steps')
+        plt.ylabel('p idle')
+        #probability
+        
+        
+        #reward
+        plt.figure()
+        plt.subplot(211)
         plt.plot(reward_ep)  
         plt.xlabel('steps')
         plt.ylabel('reward one ep')
-        
-        plt.subplot(7,2,10)
-        plt.plot(rr)  
-        plt.xlabel('episode steps')
-        plt.ylabel('runing reward')
-        
-        plt.subplot(7,2,11)
-        plt.plot(reward_mean)  
-        plt.xlabel('episode steps')
-        plt.ylabel('reward_mean')
-        
-        plt.subplot(7,2,12)
-        plt.plot(reward_mean_max_rate)  
-        plt.xlabel('episode steps')
-        plt.ylabel('reward Max/mean')
-
-        plt.subplot(7,2,13)
-        plt.plot(random_u)  
-        plt.xlabel('steps')
-        plt.ylabel('random_u')
-        
-        plt.subplot(7,2,14)
+        plt.subplot(212)
         plt.plot(reward_one_ep_mean)  
         plt.xlabel('episode steps')
         plt.ylabel('reward mean for one ep')
-        #plt.subplot(432)
-        #plt.plot(vt)    # plot the episode vt
-        #plt.xlabel('episode steps')
-        #plt.ylabel('normalized state-action value')
+        plt.figure()
+        plt.subplot(311)
+        plt.plot(rr)  
+        plt.xlabel('episode steps')
+        plt.ylabel('runing reward whole episode')
+        plt.subplot(312)
+        plt.plot(reward_mean)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward_mean')
+        plt.subplot(313)
+        plt.plot(reward_mean_max_rate)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward Max/mean')
+        #reward
+        
+#        
+#        plt.subplot(311)
+#        plt.plot(probability_da[0])  
+#        plt.xlabel('steps')
+#        plt.ylabel('p accelerate')
+#        plt.subplot(312)
+#        plt.plot(probability_da[1])  
+#        plt.xlabel('steps')
+#        plt.ylabel('p accelerate')
+#        plt.subplot(313)
+#        plt.plot(probability_da[2])  
+#        plt.xlabel('steps')
+#        plt.ylabel('p accelerate')
+#        
         
                 
         #plt.subplot(4,2,6)
@@ -2174,24 +2160,19 @@ while True:
         #plt.ylabel('learning rate')
         
 
-# =============================================================================
-#         plt.subplot(4,3,11)
-#         plt.plot(distance_set)  
-#         plt.xlabel('episode steps')
-#         plt.ylabel('distance_set')
-#       
-# =============================================================================
+
         plt.show()
         actor.angle=[]
         actor.accelerate=[]
         actor.brake=[]
-        actor.ba_switch=[]
         action_ori0=[]
         action_ori1=[]
         action_ori2=[]
         action_ori3=[]
+        action_ori4=[]
+        action_ori5=[]
         reward_ep=[]
-        random_u=[]
+#        random_u=[]
         #print(actor.policy_grads[0])
 
         if np.floor(np.log10(ep_total))>log_ep_old:
@@ -2207,7 +2188,7 @@ while True:
         print("lr ep :",ep_lr)
         summary=False
 
-        if ep_lr>10000:
+        if ep_total>10000:
 
             
             pygame.quit()
