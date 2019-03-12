@@ -6,9 +6,9 @@ Created on Mon Mar 11 15:20:46 2019
 @author: spikezz
 """
 import tensorflow as tf
-import numpy as np
 import os
 import shutil
+import matplotlib.pyplot as plt
 
 class Saver(object):
     
@@ -73,14 +73,102 @@ class Saver(object):
         
 class Summary(object):
     
-    def summary(self,var,pointer,capacity,lr):
+    def summary(self,LOAD,var,pointer,capacity,reward_ep,running_reward,
+                running_reward_max,reward_mean,rr_idx,max_reward_reset,
+                action_ori,actor,reward_one_ep_mean,rr,critic,reward_mean_max_rate,ep_lr):
         
+        print("LOAD:",LOAD)
+#        print("FPS:",clock.get_fps())
         print("var0:",var[0],"var1:",var[1],"var2:",var[2])
         print("MEMORY_pointer:",pointer)
         print("MEMORY_CAPACITY:",capacity)
-        print("learning rate actor:",lr[0],"learning rate critic:",lr[1])
-        if running_reward_max<running_reward and ep_total>1:
-            
-            running_reward_max=running_reward
-            ep_lr=0
-            max_reward_reset=max_reward_reset+1
+        print("running_reward:",running_reward)
+        print("max_running_reward:",running_reward_max)
+        print("reward_mean:",reward_mean[rr_idx-1])
+        print("max_reward_reset:",max_reward_reset)
+        print("lr ep :",ep_lr)
+         #accelerate 
+        plt.figure()
+        plt.subplot(211)
+        plt.plot(action_ori[0])  
+        plt.xlabel('steps')
+        plt.ylabel('a0 output')
+        plt.subplot(212)
+        plt.plot(actor.accelerate)  
+        plt.xlabel('steps')
+        plt.ylabel('accelerate')
+        #accelerate      
+        
+        #brake
+        plt.figure()
+        plt.subplot(211)
+        plt.plot(action_ori[1])  
+        plt.xlabel('steps')
+        plt.ylabel('a1 output')
+        plt.subplot(212)
+        plt.plot(actor.brake)  
+        plt.xlabel('steps')
+        plt.ylabel('brake')
+        #brake
+        
+        #steering angle
+        plt.figure()
+        plt.subplot(211)
+        plt.plot(action_ori[2])  
+        plt.xlabel('steps')
+        plt.ylabel('a2 output')
+        plt.subplot(212)
+        plt.plot(actor.angle)  
+        plt.xlabel('steps')
+        plt.ylabel('angle')
+        #steering angle
+        
+        #probability
+        plt.figure()
+        plt.subplot(311)
+        plt.plot(action_ori[3])  
+        plt.xlabel('steps')
+        plt.ylabel('p accelerate')
+        plt.subplot(312)
+        plt.plot(action_ori[4])  
+        plt.xlabel('steps')
+        plt.ylabel('p brake')
+        plt.subplot(313)
+        plt.plot(action_ori[5])  
+        plt.xlabel('steps')
+        plt.ylabel('p idle')
+        #probability
+        
+        
+        #reward
+        plt.figure()
+        plt.subplot(211)
+        plt.plot(reward_ep)  
+        plt.xlabel('steps')
+        plt.ylabel('reward one ep')
+        plt.subplot(212)
+        plt.plot(reward_one_ep_mean)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward mean for one ep')
+        plt.figure()
+        plt.subplot(311)
+        plt.plot(rr)  
+        plt.xlabel('episode steps')
+        plt.ylabel('runing reward whole episode')
+        plt.subplot(312)
+        plt.plot(reward_mean)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward_mean')
+        plt.subplot(313)
+        plt.plot(reward_mean_max_rate)  
+        plt.xlabel('episode steps')
+        plt.ylabel('reward Max/mean')
+        
+        plt.figure()
+        plt.subplot(111)
+        plt.plot(critic.model_localization)
+        plt.xlabel('learning steps')
+        plt.ylabel('model_localization')
+        
+        plt.show()
+        

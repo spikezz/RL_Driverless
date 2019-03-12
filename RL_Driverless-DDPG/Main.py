@@ -123,6 +123,7 @@ class Critic(object):
         self.t_replace_counter = 0
         self.loss_step=0
         self.Momentum=0.9
+        self.model_localization=[]
 #        self.sess=tf.Session()
         self.writer = tf.summary.FileWriter("/home/spikezz/Driverless/aktuelle zustand/RL_Driverless/RL_Driverless-DDPG/loss")
         
@@ -192,7 +193,7 @@ class Critic(object):
        
         return q
 
-    def learn(self, s, a, r, s_):
+    def learn(self, s, a, r, s_,ep_total):
         
         self.sess.run(self.soft_replace)
         self.loss_summary=self.sess.run([self.train_op,self.loss_scalar], feed_dict={S: s, self.a: a, R: r, S_: s_})[1]  
@@ -202,6 +203,7 @@ class Critic(object):
             self.t_replace_counter = 0
         self.t_replace_counter += 1
         self.loss_step+=1
+        self.model_localization.append(ep_total)
 #        print("self.loss_step",self.loss_step)
 
 class Memory(object):
@@ -814,8 +816,8 @@ List_net.extend(List_ce)
 #saver = tf.train.Saver(var_list=List_net,max_to_keep=10000)
 saver = tf.train.Saver(max_to_keep=10000)
 
-LOAD = False
-#LOAD = True
+#LOAD = False
+LOAD = True
 
 n_model = 0
 MODE = ['0']
@@ -1205,132 +1207,131 @@ while True:
         #wheel 20
         
         #angle signal give to the object car
-        
-        if start_action==True:
-            
-            start_timer=True
-            
-            action = actor.choose_action(observation)
-            probability=ss.softmax(np.array([action[3],action[4],action[5]]))
-#            print("actionout",action)
-
-            action[0] =action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
-            action[1] =action[1] -(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
-
-            action_ori0.append(action[0])
-            action_ori1.append(action[1])
-            action_ori2.append(action[2])
-            action_ori3.append(probability[0])
-            action_ori4.append(probability[1])
-            action_ori5.append(probability[2])
-            
-#            print("probability",probability)
-#            action_ori3.append(action[3])
-#            action_ori4.append(action[4])
-#            action_ori5.append(action[5])
-#            print("action1",action)
-            
-            action[0] = np.clip(np.random.normal(action[0], var0), *ACTION_BOUND0)
-            action[1] = np.clip(np.random.normal(action[1], var1), *ACTION_BOUND1)
-            action[2] = np.clip(np.random.normal(action[2], var2), *ACTION_BOUND2)
-         
-            
-#            if car.speed<=1 and action[0]<0:
-#                action[0]=np.random.random_sample()*ACTION_BOUND0[1]
-#                print("action[0]:",action[0])
-
-               
-            angle_old=angle
-            
-               
-            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[2]<half_Max_angle and angle+action[2]>-half_Max_angle:
-                
-                angle=angle+action[2]
-            
-            else:
-                
-                action[2]=0
+#        
+#        if start_action==True:
 #            
-            if sin_projection_blue<safty_distance_turning:
-                
-                punish_turning=True
-                
-                if sin_projection_blue<safty_distance_impact:
-                    
-                    angle=half_Max_angle
-                    action[2]=half_Max_angle-angle_old             
-#                    while debug:
-#                        for event in pygame.event.get():
-#                            if event.unicode == '\d':
-#                                debug=False
-                
-                elif angle<half_Max_angle and angle>=0:
-                    
-                    action[2]=1
-                    angle=angle+action[2]
-                    
-                elif angle>half_Max_angle*0.9 or angle<0:
-                    
-                    angle=0
-                    action[2]=0-angle_old
-
-                    
-            elif sin_projection_yellow<safty_distance_turning:
-                
-                punish_turning=True
-                
-                if sin_projection_yellow<safty_distance_impact:
-                    
-                    angle=-half_Max_angle
-                    action[2]=-half_Max_angle-angle_old            
-#                    while debug:
-#                        for event in pygame.event.get():
-#                            if event.unicode == '\d':
-#                                debug=False
-                elif angle>-half_Max_angle and angle<=0:
-                    
-                    action[2]=-1
-                    angle=angle+action[2]   
-                    
-                elif angle<-half_Max_angle*0.9 or angle>0:
-                    
-                    angle=0
-                    action[2]=0-angle_old
-                    
-            actor.angle.append(action[2])
-            choice=np.random.choice(range(len(probability)),p=probability)
-#            print("sess.run(probability):",sess.run(probability))
-#            print("choice:",choice)
-            if choice==0:
-                car.accelerate(action[0])#beschleunigen
-                actor.accelerate.append(action[0])
-                actor.brake.append(0)
-            elif choice==1:
-                car.accelerate(action[1])#bremsen
-                actor.brake.append(action[1])
-                actor.accelerate.append(0)
-                
-            elif choice==2:
-                actor.accelerate.append(0)
-                actor.brake.append(0)
-                
-        car.wheelangle=angle
-        model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
-    
-        
-        if angle>0 :
-        
-            car.rrl=model[19]
-            car.steerleft()
-            #vektor_speed=[car.speed*,car.speed*]
-           
-        elif angle<0  :
-    
-            car.rrr=model[21]
-            car.steerright()
-        
-    
-        model=cv.rotate(model,CENTER,car.dir)
+#            start_timer=True
+#            
+#            action = actor.choose_action(observation)
+#            probability=ss.softmax(np.array([action[3],action[4],action[5]]))
+##            print("actionout",action)
+#
+#            action[0] =action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+#            action[1] =action[1] -(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+#
+#            action_ori0.append(action[0])
+#            action_ori1.append(action[1])
+#            action_ori2.append(action[2])
+#            action_ori3.append(probability[0])
+#            action_ori4.append(probability[1])
+#            action_ori5.append(probability[2])
+#            
+##            print("probability",probability)
+##            action_ori3.append(action[3])
+##            action_ori4.append(action[4])
+##            action_ori5.append(action[5])
+##            print("action1",action)
+#            
+#            action[0] = np.clip(np.random.normal(action[0], var0), *ACTION_BOUND0)
+#            action[1] = np.clip(np.random.normal(action[1], var1), *ACTION_BOUND1)
+#            action[2] = np.clip(np.random.normal(action[2], var2), *ACTION_BOUND2)
+#            
+##            if car.speed<=1 and action[0]<0:
+##                action[0]=np.random.random_sample()*ACTION_BOUND0[1]
+##                print("action[0]:",action[0])
+#
+#               
+#            angle_old=angle
+#            
+#               
+#            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[2]<half_Max_angle and angle+action[2]>-half_Max_angle:
+#                
+#                angle=angle+action[2]
+#            
+#            else:
+#                
+#                action[2]=0
+##            
+#            if sin_projection_blue<safty_distance_turning:
+#                
+#                punish_turning=True
+#                
+#                if sin_projection_blue<safty_distance_impact:
+#                    
+#                    angle=half_Max_angle
+#                    action[2]=half_Max_angle-angle_old             
+##                    while debug:
+##                        for event in pygame.event.get():
+##                            if event.unicode == '\d':
+##                                debug=False
+#                
+#                elif angle<half_Max_angle and angle>=0:
+#                    
+#                    action[2]=1
+#                    angle=angle+action[2]
+#                    
+#                elif angle>half_Max_angle*0.9 or angle<0:
+#                    
+#                    angle=0
+#                    action[2]=0-angle_old
+#
+#                    
+#            elif sin_projection_yellow<safty_distance_turning:
+#                
+#                punish_turning=True
+#                
+#                if sin_projection_yellow<safty_distance_impact:
+#                    
+#                    angle=-half_Max_angle
+#                    action[2]=-half_Max_angle-angle_old            
+##                    while debug:
+##                        for event in pygame.event.get():
+##                            if event.unicode == '\d':
+##                                debug=False
+#                elif angle>-half_Max_angle and angle<=0:
+#                    
+#                    action[2]=-1
+#                    angle=angle+action[2]   
+#                    
+#                elif angle<-half_Max_angle*0.9 or angle>0:
+#                    
+#                    angle=0
+#                    action[2]=0-angle_old
+#                    
+#            actor.angle.append(action[2])
+#            choice=np.random.choice(range(len(probability)),p=probability)
+##            print("sess.run(probability):",sess.run(probability))
+##            print("choice:",choice)
+#            if choice==0:
+#                car.accelerate(action[0])#beschleunigen
+#                actor.accelerate.append(action[0])
+#                actor.brake.append(0)
+#            elif choice==1:
+#                car.accelerate(action[1])#bremsen
+#                actor.brake.append(action[1])
+#                actor.accelerate.append(0)
+#                
+#            elif choice==2:
+#                actor.accelerate.append(0)
+#                actor.brake.append(0)
+#                
+#        car.wheelangle=angle
+#        model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
+#    
+#        
+#        if angle>0 :
+#        
+#            car.rrl=model[19]
+#            car.steerleft()
+#            #vektor_speed=[car.speed*,car.speed*]
+#           
+#        elif angle<0  :
+#    
+#            car.rrr=model[21]
+#            car.steerright()
+#        
+#    
+#        model=cv.rotate(model,CENTER,car.dir)
         
         dis_close_yellow_cone_1=1000
         
@@ -1471,7 +1472,6 @@ while True:
 #            print("speed_projection:",speed_projection)
             speed_projection=car.maxspeed
 
-            
 #        if speed_projection<0:
 #            
 #            speed_projection=-speed_projection
@@ -1481,14 +1481,137 @@ while True:
         if coneback:
             
             dis_back=cal.calculate_r((car.x,car.y),(coneback.x-model[7][0][0],coneback.y-model[7][0][1]))
+        
+        if start_action==True:
+            
+            start_timer=True
+            
+            action = actor.choose_action(observation)
+            probability=ss.softmax(np.array([action[3],action[4],action[5]]))
+#            print("actionout",action)
 
+            action[0] =action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+            action[1] =action[1] -(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+
+            action_ori0.append(action[0])
+            action_ori1.append(action[1])
+            action_ori2.append(action[2])
+            action_ori3.append(probability[0])
+            action_ori4.append(probability[1])
+            action_ori5.append(probability[2])
+            
+#            print("probability",probability)
+#            action_ori3.append(action[3])
+#            action_ori4.append(action[4])
+#            action_ori5.append(action[5])
+#            print("action1",action)
+            
+            action[0] = np.clip(np.random.normal(action[0], var0), *ACTION_BOUND0)
+            action[1] = np.clip(np.random.normal(action[1], var1), *ACTION_BOUND1)
+            action[2] = np.clip(np.random.normal(action[2], var2), *ACTION_BOUND2)
+            
+#            if car.speed<=1 and action[0]<0:
+#                action[0]=np.random.random_sample()*ACTION_BOUND0[1]
+#                print("action[0]:",action[0])
+
+               
+            angle_old=angle
+            
+               
+            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[2]<half_Max_angle and angle+action[2]>-half_Max_angle:
+                
+                angle=angle+action[2]
+            
+            else:
+                
+                action[2]=0
+#            
+            if sin_projection_blue<safty_distance_turning:
+                
+                punish_turning=True
+                
+                if sin_projection_blue<safty_distance_impact:
+                    
+                    angle=half_Max_angle
+                    action[2]=half_Max_angle-angle_old             
+#                    while debug:
+#                        for event in pygame.event.get():
+#                            if event.unicode == '\d':
+#                                debug=False
+                
+                elif angle<half_Max_angle and angle>=0:
+                    
+                    action[2]=1
+                    angle=angle+action[2]
+                    
+                elif angle>half_Max_angle*0.9 or angle<0:
+                    
+                    angle=0
+                    action[2]=0-angle_old
+
+                    
+            elif sin_projection_yellow<safty_distance_turning:
+                
+                punish_turning=True
+                
+                if sin_projection_yellow<safty_distance_impact:
+                    
+                    angle=-half_Max_angle
+                    action[2]=-half_Max_angle-angle_old            
+#                    while debug:
+#                        for event in pygame.event.get():
+#                            if event.unicode == '\d':
+#                                debug=False
+                elif angle>-half_Max_angle and angle<=0:
+                    
+                    action[2]=-1
+                    angle=angle+action[2]   
+                    
+                elif angle<-half_Max_angle*0.9 or angle>0:
+                    
+                    angle=0
+                    action[2]=0-angle_old
+                    
+            actor.angle.append(action[2])
+            choice=np.random.choice(range(len(probability)),p=probability)
+#            print("sess.run(probability):",sess.run(probability))
+#            print("choice:",choice)
+            if choice==0:
+                car.accelerate(action[0])#beschleunigen
+                actor.accelerate.append(action[0])
+                actor.brake.append(0)
+            elif choice==1:
+                car.accelerate(action[1])#bremsen
+                actor.brake.append(action[1])
+                actor.accelerate.append(0)
+                
+            elif choice==2:
+                actor.accelerate.append(0)
+                actor.brake.append(0)
+                
+        car.wheelangle=angle
+        model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
+    
+        
+        if angle>0 :
+        
+            car.rrl=model[19]
+            car.steerleft()
+            #vektor_speed=[car.speed*,car.speed*]
+           
+        elif angle<0  :
+    
+            car.rrr=model[21]
+            car.steerright()
+        
+    
+        model=cv.rotate(model,CENTER,car.dir)
         ##draw background
         if Render==True:
             
             screen.blit(background, (0,0))
         ##
-        
-        
+    
         ##update map
         map_s.update(cam.x, cam.y)
         if Render==True:
@@ -1508,18 +1631,13 @@ while True:
         if Render==True:
             
             path_s.draw(screen)
-        
-        
+       
         ##draw path point
         
         ##determine the center of the car moving circle in the coordinate of the sprite layer,connection between surface canvas and sprite layer
         car.rpl=(model[18][0][0]-CENTER[0]+car.x,model[18][0][1]-CENTER[1]+car.y)
         car.rpr=(model[20][0][0]-CENTER[0]+car.x,model[20][0][1]-CENTER[1]+car.y)
-        ##determine the center of the car moving circle in the coordinate of the sprite layer,connection between surface canvas and sprite layer
-      
-        
-    
-        
+        ##determine the center of the car moving circle in the coordinate of the sprite layer,connection between surface canvas and sprite layer  
         
         ##
         for i in range (0, q+1):
@@ -1533,7 +1651,6 @@ while True:
         vektor_speed=[car.speed*math.cos(math.radians(270-angle)),car.speed*math.sin(math.radians(270-angle))]
 #        print("vektor_speed",vektor_speed)
         ##
-        
         
         ##
         text_episode_time= font.render('episode_time: ' +str(round(float(episode_time),2)), 1, (0, 0, 102))   
@@ -1555,8 +1672,6 @@ while True:
         textpos_show2 = text_dir.get_rect(centery=585, left=20)
         #anything want to show
         
-        
-        
         ##
         player_s.update(cam.x, cam.y)
         if Render==True:
@@ -1572,8 +1687,7 @@ while True:
             
             tracks_s.draw(screen)
         ##
-        
-        
+      
         ##
         canvas.fill((255, 255, 255,0))
         ##
@@ -1582,8 +1696,7 @@ while True:
         pygame.draw.line(canvas, (0,100,0), (100,CENTER[1]), (CENTER[0],CENTER[1]),2)
         pygame.draw.line(canvas, (0,100,0), (CENTER[0],100), (CENTER[0],CENTER[1]),2)
         ##draw lines to find center of the car
-        
-        
+      
         ##draw model of the car
         pygame.draw.line(canvas, (255,255,255), model[0][0], model[1][0],4)
         pygame.draw.line(canvas, (255,255,255), model[2][0], model[3][0],4)#front wheel
@@ -1593,8 +1706,7 @@ while True:
         pygame.draw.line(canvas, (255,255,255), model[12][0], model[13][0],4)#back wheel
         pygame.draw.line(canvas, (255,255,255), model[8][0], model[9][0],4)#back axis
         ##draw model of the car
-           
-    
+
         ##draw back axis extension
         pygame.draw.line(canvas, (255,255,102), model[16][0],model[17][0],2)
         ##draw back axis extension
@@ -1646,8 +1758,7 @@ while True:
             pygame.draw.line(canvas, (255,255,102), model[4][0],model[15][0],2)#frontwheel turing axis
         
         ##draw front axis extension
-        
-        
+      
         ##draw  the circle which car moving along in canvas
         if  angle>0:
             pass
@@ -1658,15 +1769,13 @@ while True:
             #pygame.draw.arc(canvas, (255,255,102), (model[20][0][0]-model[21],model[20][0][1]-model[21],2*model[21],2*model[21]), 0, 360, 0)
         
         ##draw  the car moving circle in canvas
-        
-        
+ 
         ##show canvas
         if Render==True:
             
             screen.blit(canvas, (0,0))
         ##show canvas
-        
-        
+    
         ##show text
         if Render==True:
             
@@ -1686,8 +1795,7 @@ while True:
             screen.blit(text_show1, textpos_show1)
             screen.blit(text_show2, textpos_show2)
         ##show text
-        
-        
+    
         ##start drawing
         
         #vektor_blue Within radar range
@@ -1711,8 +1819,6 @@ while True:
                 
                 vektor_yellow_temp.append(vektor_yellow[i])
                 dis_yellow_sqr_sum=dis_yellow_sqr_sum+pow(dis_yellow[i],2)
-                
-                
 
         k=len(vektor_blue_temp)
         l=len(vektor_yellow_temp)
@@ -1889,7 +1995,7 @@ while True:
                 #print("reward:",reward)
                 #print("episode:",episode)
                 
-                print("FPS:",clock.get_fps())
+#                print("FPS:",clock.get_fps())
                 reward_sum=0
                 dis_blue_sqr_sum=0
                 dis_yellow_sqr_sum=0
@@ -1968,7 +2074,7 @@ while True:
 #                print("b_r:",b_r)
 #                print("b_s_:",b_s_)
 #
-                critic.learn(b_s, b_a, b_r, b_s_)
+                critic.learn(b_s, b_a, b_r, b_s_,ep_total)
                 actor.learn(b_s)
                 
             observation_old=observation
@@ -1984,14 +2090,40 @@ while True:
         ##update screen
         
     else:
+        
         n_model=n_model+1
         MODE.append(str(n_model))
 #        print(MODE)
         di = './Model/Model_'+MODE[n_model]
+     
+        
+        reward_ep_mean=np.mean(reward_ep)
+        reward_one_ep_mean.append(reward_ep_mean)
+        
+        if running_reward_max<running_reward and ep_total>1:
+            
+            running_reward_max=running_reward
+            ep_lr=0
+            max_reward_reset=max_reward_reset+1
+            
+        rr.append(running_reward)   
+        rr_idx=rr_idx+1
+        reward_mean.append(sum(rr)/rr_idx)
+        
+        if rr_idx>5:
+            
+            reward_mean_max_rate.append(running_reward_max/reward_mean[rr_idx-1])
+            
+        print("LOAD:",LOAD)
+        print("FPS:",clock.get_fps())
         print("var0:",var0,"var1:",var1,"var2:",var2)
         print("MEMORY_pointer:",M.pointer)
         print("MEMORY_CAPACITY:",M.capacity)
-        print("learning rate actor:",actor.lr,"learning rate critic:",critic.lr)
+        print("running_reward:",running_reward)
+        print("max_running_reward:",running_reward_max)
+        print("reward_mean:",reward_mean[rr_idx-1])
+        print("max_reward_reset:",max_reward_reset)
+
         if os.path.isdir(di): shutil.rmtree(di)
         os.mkdir(di)
         ckpt_path = os.path.join( './Model/Model_'+MODE[n_model], 'DDPG.ckpt')
@@ -2000,21 +2132,13 @@ while True:
         
         file = os.path.join( './Model/Model_'+MODE[n_model], 'episode_reward.txt')
         fw=open(file, mode='+w')
-        reward_ep_mean=np.mean(reward_ep)
-        reward_one_ep_mean.append(reward_ep_mean)
         reward_str= 'running_reward:'+str(running_reward)+'\n'+'reward_ep_mean:'+str(reward_ep_mean)
         fw.seek(0,0)
         fw.write( reward_str)
-
- 
+        
         current_path = os.getcwd()
         model_dir = os.path.join(current_path, 'logs')
-        
-        #os.mkdir(di)
         writer=tf.summary.FileWriter(model_dir, sess.graph)
-        
-        
-#        writer.add_summary(sess.run(merged), ep_total)
         writer.close()
         
 #        reader = pywrap_tensorflow.NewCheckpointReader(ckpt_path)
@@ -2026,30 +2150,6 @@ while True:
 #            print("tensor_name: ", key)
         #print("RL.r_set:",RL.r_set)
         #rs_sum = sum(RL.r_set)
-        
-
-        if running_reward_max<running_reward and ep_total>1:
-            
-            running_reward_max=running_reward
-            ep_lr=0
-            max_reward_reset=max_reward_reset+1
-        
-#        reward_one_ep_mean.append(np.mean(reward_ep))
-
-        print("running_reward:",running_reward)
-        print("max_running_reward:",running_reward_max)
-        
-        rr.append(running_reward)   
-        rr_idx=rr_idx+1
-        reward_mean.append(sum(rr)/rr_idx)
-        
-        print("reward_mean:",reward_mean[rr_idx-1])
-        if rr_idx>5:
-            
-            reward_mean_max_rate.append(running_reward_max/reward_mean[rr_idx-1])
-        #if RL.learning_rate>0.001:
-
-        print("max_reward_reset:",max_reward_reset)
         #RL.learning_rate=0.3/(ep_lr+3000)
         #lr_set.append(RL.learning_rate)
         #print("learning rate:",RL.learning_rate)
@@ -2136,8 +2236,13 @@ while True:
         plt.plot(reward_mean_max_rate)  
         plt.xlabel('episode steps')
         plt.ylabel('reward Max/mean')
-        #reward
         
+        plt.figure()
+        plt.subplot(111)
+        plt.plot(critic.model_localization)
+        plt.xlabel('learning steps')
+        plt.ylabel('model_localization')
+        #reward     
 #        
 #        plt.subplot(311)
 #        plt.plot(probability_da[0])  
@@ -2151,17 +2256,14 @@ while True:
 #        plt.plot(probability_da[2])  
 #        plt.xlabel('steps')
 #        plt.ylabel('p accelerate')
-#        
-        
-                
+
         #plt.subplot(4,2,6)
         #plt.plot(lr_set)  
         #plt.xlabel('episode steps')
         #plt.ylabel('learning rate')
-        
-
 
         plt.show()
+        
         actor.angle=[]
         actor.accelerate=[]
         actor.brake=[]
@@ -2172,6 +2274,7 @@ while True:
         action_ori4=[]
         action_ori5=[]
         reward_ep=[]
+        
 #        random_u=[]
         #print(actor.policy_grads[0])
 
@@ -2181,11 +2284,14 @@ while True:
             critic.lr=critic.lr/10
             log_ep_old=np.floor(np.log10(ep_total))
             
+        print("learning rate actor:",actor.lr,"learning rate critic:",critic.lr)
+        
         ep_total=ep_total+1
         print("totaol train:",ep_total)
-        print("LOAD:",LOAD)
+        
         ep_lr=ep_lr+1
         print("lr ep :",ep_lr)
+        
         summary=False
 
         if ep_total>10000:

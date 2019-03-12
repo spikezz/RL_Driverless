@@ -13,12 +13,11 @@ import numpy as np
 import calculate as cal
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import scipy.special as ss
 
 import airsim
 import rospy
 import os
-#import cone
-#import path_m
 import tools
 import RL
 import time
@@ -36,7 +35,13 @@ def set_throttle(data):
     car_controls.throttle=data.data
     client.setCarControls(car_controls)
     print("befehl:",data.data)
-
+    
+def set_brake(data):
+    
+    car_controls.brake=data.data
+    client.setCarControls(car_controls)
+    print("befehl:",data.data)
+    
 def set_steering(data):
     
     car_controls.steering=data.data
@@ -67,8 +72,11 @@ init_v_y=car_state.kinematics_estimated.linear_velocity.y_val
 init_v_z=car_state.kinematics_estimated.linear_velocity.z_val
 #calibration white noise of velocity
 
-safty_distance_turning=2.4
-safty_distance_impact=2.3
+sin_projection_yellow=0
+sin_projection_blue=0
+
+safty_distance_turning=2.2
+safty_distance_impact=2.0
 collision_distance=1.8
 punish_turnin=False
 reward_sum=0
@@ -80,13 +88,23 @@ time_stamp=0
 summary=False
 LOAD=False
 collision=False
+collide_finish=False
 running_reward_max=0
 running_reward=0
 ep_total=0
 ep_lr=0
+action_ori=[[],[],[],[],[],[]]
 max_reward_reset=0
 rr_set=[]
+#set of runing reward
+rr=[]
+#set of runing reward
 reward_mean_set=[]
+reward_ep=[]
+reward_one_ep_mean=[]
+#average whole episode reward of the whole training  process
+reward_mean=[]
+#average whole episode reward of the whole training  process
 #ratio of the max max running reward and the average running reward.1 is the goal
 reward_mean_max_rate=[]
 #ratio of the max max running reward and the average running reward.1 is the goal
@@ -94,19 +112,11 @@ rr_idx=0
 #set of runing reward
 count=0
 #minimal exploration wide of action
-VAR_MIN_0 = 0.01
-VAR_MIN_updated_0=0.001
-VAR_MIN_1 = 0.01
-VAR_MIN_updated_1=0.001
-VAR_MIN_2 = 0.02
-VAR_MIN_updated_2=0.002
+VAR_MIN= [0.01,0.01,0.02]
+VAR_MIN_updated=[0.001,0.001,0.002]
 #minimal exploration wide of action
 #initial exploration wide of action
-var0 = 0.1
-var1 = 0.1
-var2 = 0.1
-#var1 = 0.1
-#var2 = 0.1
+var= [0.1,0.1,0.1]
 #initial exploration wide of action
 #dimension of action
 ACTION_DIM = 6
@@ -115,10 +125,8 @@ ACTION_DIM = 6
 ACTION_BOUND0 = np.array([0,1])
 ACTION_BOUND1 = np.array([0,1])
 ACTION_BOUND2 = np.array([-1,1])
-
 #action boundary
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
-ACTION_BOUND=np.array([0.5,1])
 ACTION_BOUND=np.array([0.5,0.5,1,1,1,1])
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 # learning rate for actor
@@ -130,12 +138,12 @@ LR_C = 1e-6
 # reward discount
 rd = 0.9
 # reward discount
-##after this learning number of main net update the target net of actor
-#REPLACE_ITER_A = 256
-##after this learning number of main net update the target net of actor
-##after this learning number of main net update the target net of Critic
-#REPLACE_ITER_C = 256
-##after this learning number of main net update the target net of Critic
+#after this learning number of main net update the target net of actor
+REPLACE_ITER_A = 1024
+#after this learning number of main net update the target net of actor
+#after this learning number of main net update the target net of Critic
+REPLACE_ITER_C = 1024
+#after this learning number of main net update the target net of Critic
 #occupied memory
 MEMORY_CAPACITY = 131072
 MEMORY_CAPACITY = 1024
@@ -143,12 +151,6 @@ MEMORY_CAPACITY = 1024
 #size of memory slice
 BATCH_SIZE = 128
 #size of memory slice
-#after this learning number of main net update the target net of actor
-REPLACE_ITER_A = 1024
-#after this learning number of main net update the target net of actor
-#after this learning number of main net update the target net of Critic
-REPLACE_ITER_C = 1024
-#after this learning number of main net update the target net of Critic
 probability=[]
 
 #constant of distance measure
@@ -164,9 +166,9 @@ observation=np.zeros(input_dim)
 observation_old=np.zeros(input_dim)
 #copy the state
 for t in range (0,input_dim):
+    
     observation[t]=0
     observation_old[t]=0
-
 
 #spawn=False
 ###constant of path
@@ -178,8 +180,8 @@ for t in range (0,input_dim):
 all_var=True
 sess = tf.Session()
 
-actor = RL.Actor(sess, ACTION_DIM, ACTION_BOUND, LR_A)
-critic = RL.Critic(sess, input_dim, ACTION_DIM, LR_C, rd, actor.a, actor.a_)
+actor = RL.Actor(sess, ACTION_DIM, ACTION_BOUND, LR_A,REPLACE_ITER_A)
+critic = RL.Critic(sess, input_dim, ACTION_DIM, LR_C, rd, REPLACE_ITER_A,actor.a, actor.a_)
 actor.add_grad_to_graph(critic.a_grads)
 
 M = RL.Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
@@ -284,9 +286,8 @@ while not rospy.is_shutdown():
     if summary==False:
         
         list_blue_cone=client.simGetObjectPoses("RightCone")
-        list_yellow_cone=client.simGetObjectPoses("LeftCone")   
-        
-        
+        list_yellow_cone=client.simGetObjectPoses("LeftCone")  
+        coneback=client.simGetObjectPoses("finish")
         bcn_msg.header.seq = 0
         bcn_msg.header.stamp = rospy.get_rostime()
         bcn_msg.header.frame_id = ""
@@ -370,37 +371,40 @@ while not rospy.is_shutdown():
         
         sin_projection_yellow=cal.calculate_projection(True,dis_close_yellow_cone_1,dis_close_yellow_cone_2,dis_between_yellow_cone)[1]
         
+        distance_coneback=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[coneback[0].position.x_val,coneback[0].position.y_val])
+        print("sin_projection_yellow:",sin_projection_yellow,"\n","sin_projection_blue:",sin_projection_blue,"\n","distance_coneback:",distance_coneback)
         action = actor.choose_action(observation)
-#        print("action:",action)
-        action[0]=action[0]+0.5
-#        action=[0,0]
-        action[0] = np.clip(np.random.normal(action[0], var1), *ACTION_BOUND0)
-        action[1] = np.clip(np.random.normal(action[1], var2), *ACTION_BOUND1)
-#        print("action:",action)
-#        print("action:",action)
-        
-        
-#        if car_state.speed>0.4 :
-#            action[0]=0
-#            print("speed:",car_state.speed)
-#            action[0]=np.random.random_sample()
-#            print("action[0]:",action[0])
-        
-#        action[1]=np.random.random_sample()*(ACTION_BOUND1[1]-ACTION_BOUND1[0])+ACTION_BOUND1[0]
-    #    print("action[1]:",action[1])
-        
-#        if car_controls.steering<1 and car_controls.steering>-1 and car_controls.steering+action[1]<1 and car_controls.steering+action[1]>-1:
-        if car_controls.steering<1 and car_controls.steering>-1:
-            
-            car_controls.steering=float(action[1])
-             
-        if car_state.speed<=0.5:
-            
-            action[0]=float(np.random.random_sample()*(ACTION_BOUND0[1]-0))
-          
-            #print("action:",action)
+        probability=ss.softmax(np.array([action[3],action[4],action[5]]))
+#            print("actionout",action)
 
+        action[0] =action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+        action[1] =action[1] +(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+
+        action_ori[0].append(action[0])
+        action_ori[1].append(action[1])
+        action_ori[2].append(action[2])
+        action_ori[3].append(probability[0])
+        action_ori[4].append(probability[1])
+        action_ori[5].append(probability[2])
         
+#            print("probability",probability)
+#            action_ori3.append(action[3])
+#            action_ori4.append(action[4])
+#            action_ori5.append(action[5])
+#            print("action1",action)
+        
+        action[0] = np.clip(np.random.normal(action[0], var[0]), *ACTION_BOUND0)
+        action[1] = np.clip(np.random.normal(action[1], var[1]), *ACTION_BOUND1)
+        action[2] = np.clip(np.random.normal(action[2], var[2]), *ACTION_BOUND2)
+     
+        if action[2]<1 and action[2]>-1 :
+            
+            car_controls.steering=float(action[2])
+            
+        else:
+            
+            action[2]=0
+#            
         if sin_projection_blue<safty_distance_turning:
             
             punish_turning=True
@@ -408,35 +412,63 @@ while not rospy.is_shutdown():
             if sin_projection_blue<safty_distance_impact:
                 
                 car_controls.steering=-1
-                action[1]=car_controls.steering           
+                action[2]=car_controls.steering       
+#                    while debug:
+#                        for event in pygame.event.get():
+#                            if event.unicode == '\d':
+#                                debug=False
             
-            elif sin_projection_blue>safty_distance_impact and car_controls.steering>0:
+            elif car_controls.steering>-1 and car_controls.steering<=0:
                 
-                car_controls.steering=0.1
-                action[1]=car_controls.steering
+                car_controls.steering-=0.1
+                action[2]=car_controls.steering
+                
+            elif car_controls.steering<-0.9 or car_controls.steering>0:
+                
+                car_controls.steering=0
+                action[2]=car_controls.steering
 
                 
-        if sin_projection_yellow<safty_distance_turning:
+        elif sin_projection_yellow<safty_distance_turning:
             
             punish_turning=True
             
             if sin_projection_yellow<safty_distance_impact:
                 
                 car_controls.steering=1
-                action[1]=car_controls.steering           
-            
-            elif sin_projection_blue>safty_distance_impact and car_controls.steering<0:
+                action[2]=car_controls.steering   
                 
-                car_controls.steering=-0.1
-                action[1]=car_controls.steering
-        
-           
-        print("action:",action)
-        car_controls.throttle=float(action[0]) 
-#        car_controls.steering=float(action[1]) 
+            elif car_controls.steering<1 and car_controls.steering>=0:
+                
+                car_controls.steering+=0.1
+                action[2]=car_controls.steering
+                
+            elif car_controls.steering>0.9 or car_controls.steering<0:
+                
+                car_controls.steering=0
+                action[2]=car_controls.steering
+                
+                
+        actor.angle.append(action[2])
+        choice=np.random.choice(range(len(probability)),p=probability)
+#            print("sess.run(probability):",sess.run(probability))
+#            print("choice:",choice)
+        if choice==0:
+            car_controls.brake=0
+            car_controls.throttle=float(action[0]) #beschleunigen
+            actor.accelerate.append(action[0])
+            actor.brake.append(0)
+        elif choice==1:
+            car_controls.throttle=0
+            car_controls.brake=float(action[1]) #bremsen
+            actor.brake.append(action[1])
+            actor.accelerate.append(0)
+            
+        elif choice==2:
+            actor.accelerate.append(0)
+            actor.brake.append(0)
+        #        car_controls.steering=float(action[1]) 
         client.setCarControls(car_controls)
-        actor.angle.append(action[1])
-        actor.accelerate.append(action[0])
         
         qua_msg.w=odo_msg.pose.pose.orientation.w
         qua_msg.x=odo_msg.pose.pose.orientation.x
@@ -447,7 +479,6 @@ while not rospy.is_shutdown():
         act_msg.data.append(car_controls.brake)
         act_msg.data.append(car_controls.steering)
          
-
         cone_sort_temp=[]
         cone_sort_end=[]
         
@@ -504,119 +535,70 @@ while not rospy.is_shutdown():
     #    print("observation:",observation)
            
         reward=car_state.speed
-        
-#        collision=client.simGetCollisionInfo().has_collisiond()
-        
-        for c in list_blue_cone: 
-            
-            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-          
-            if distance_cone<collision_distance:
-                
-                collision=True
-                
-        for c in list_yellow_cone: 
-            
-            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-          
-            if distance_cone<collision_distance:
-                
-                collision=True
-#                
-#        if coneback:
-#            
-#            if dis_back<collision_distance*1.5:
-#                
-#                collision=True
-#            
-#        if M.pointer > MEMORY_CAPACITY and punish_turning==True:
-#            #                reward=-math.sqrt(reward**2)
-#            idx_punish = M.pointer % M.capacity
-#            punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
-#            for t in range(0,len(punished_reward)):
-#                    
-#                if punished_reward[t]>0:
-#                        
-#                    reward_sum=reward_sum-2*math.sqrt(punished_reward[t]**2)
-#                    punished_reward[t]=punished_reward[t]-2*math.sqrt(punished_reward[t]**2)
-#                #                print("punished_reward",punished_reward)
-#                #                punished_reward =-2*car.maxspeed/punished_reward
-#                #                print("punished_reward_new",punished_reward)
-#                M.write(idx_punish,punish_batch_size,punished_reward)
-#            punished_reward = M.read(idx_punish,punish_batch_size)[:, -input_dim - 1]
-#            #                print("punished_reward_new",punished_reward)
-#            punish_turning=False
-#            #            print("idx_punish:",idx_punish)  
-                
-        reward_sum=reward_sum+reward
-#        print("Collision:",client.simGetCollisionInfo().has_collisiond)
 
-#        if elapsed_time>episode_time or collision==True: 
-        if collision==True: 
-            
-            for c in list_blue_cone:   
-    
-                distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-#               print("koordinate:",odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y,c.position.x_val,c.position.y_val)
-                print("distance_cone:",distance_cone)
+#        collision=client.simGetCollisionInfo().has_collisiond()
+#        print("Collision:",client.simGetCollisionInfo().has_collisiond)
+        if sin_projection_yellow<collision_distance or sin_projection_blue<collision_distance:
                 
-            for c in list_yellow_cone:   
-    
-                distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-#               print("koordinate:",odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y,c.position.x_val,c.position.y_val)
-                print("distance_cone:",distance_cone)
-#            if collision==True :
+            collision=True
+                
+        if distance_coneback<collision_distance*10:
+            
+            collide_finish=True
+
+        reward_sum=reward_sum+reward
+#        if elapsed_time>episode_time or collision==True: 
+        if collision==True or collide_finish==True: 
+                
+            if collision==True :
 #                
-#                reward=-pow(car_state.speed,3)
-#                if M.pointer > MEMORY_CAPACITY:
-#                    
-#                    idx_punish = M.pointer % M.capacity
-#                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
-#                    for t in range(0,len(punished_reward)):
-#                        
-#                        if punished_reward[t]>0:
-#                            
-#                            reward_sum=reward_sum-math.sqrt(punished_reward[t]**2)
-#                            punished_reward[t]=punished_reward[t]-3*math.sqrt(punished_reward[t]**2)
-#        
-#        #                print("punished_reward_new",punished_reward)
-#                    M.write(idx_punish,2*punish_batch_size,punished_reward)
-#                    punished_reward = M.read(idx_punish,2*punish_batch_size)[:, -input_dim - 1]
-#        #                print("punished_reward_new",punished_reward)
-           
+                reward=-pow(car_state.speed,3)
+ 
             client.reset()
             reward_sum=reward_sum+reward
             running_reward=reward_sum
             reward_sum=0
-    #        distance_set.append(distance)
-    #        distance=0
             time_stamp = time.time()
             car_controls.steering=0
             car_controls.throttle=0
             car_controls.brake=0
             count=0
             collision=False
+            collide_finish=False
             summary=True
-    
-
-    
+#            distance_set.append(distance)
+#            distance=0
 #        print("reward_sum:",reward_sum)
+        reward_ep.append(reward)
         M.store_transition(observation_old, action, reward, observation)
         
         #print("MEMORY_CAPACITY:",M.pointer)
         if M.pointer > MEMORY_CAPACITY:
-            if var1>VAR_MIN:
-                    
-                var1 = max([var1*0.99999, VAR_MIN])    # decay the action randomness
-                var2 = max([var2*0.99999, VAR_MIN]) 
-            else:
-                var1 = max([var1*0.999999, VAR_MIN_updated])    # decay the action randomness
-                var2 = max([var2*0.999999, VAR_MIN_updated]) 
+            if var[0]>VAR_MIN[0]:
                 
-        #                var1 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
-        #                var2 = max([0.98*pow(1.00228,(-ep_total)), VAR_MIN])
+                var[0] = max([var[0]*0.99999, VAR_MIN[0]])    # decay the action randomness
+                
+            else:
+                
+                var[0] = max([var[0]*0.999999, VAR_MIN_updated[0]])    # decay the action randomness
+                
+            if var[1]>VAR_MIN[1]:
+                
+                var[1] = max([var[1]*0.99999, VAR_MIN[1]]) 
+                
+            else:
+                
+                var[1] = max([var[1]*0.999999, VAR_MIN_updated[1]])
+                 
+            if var[2]>VAR_MIN[2]:
+                
+                var[2] = max([var[2]*0.99999, VAR_MIN[2]]) 
+                
+            else:
+                
+                var[2] = max([var[2]*0.999999, VAR_MIN_updated[2]])
+                
             b_M = M.sample(BATCH_SIZE)
-        #                print("BATCH_SIZE:",BATCH_SIZE)
             b_s = b_M[:, :input_dim]
             b_a = b_M[:, input_dim: input_dim + ACTION_DIM]
             b_r = b_M[:, -input_dim - 1: -input_dim]
@@ -627,90 +609,45 @@ while not rospy.is_shutdown():
         #                print("b_a:",b_a)
         #                print("b_r:",b_r)
         #                print("b_s_:",b_s_)
-            critic.learn(b_s, b_a, b_r, b_s_)
+            critic.learn(b_s, b_a, b_r, b_s_,ep_total)
             actor.learn(b_s)
             
         observation_old=observation
         
     else:
-        print("var1:",var1,"var2:",var2)
-        print("MEMORY_pointer:",M.pointer)
-        print("MEMORY_CAPACITY:",M.capacity)
-        saver.save(sess,running_reward)
-
+           
+        reward_ep_mean=np.mean(reward_ep)
+        reward_one_ep_mean.append(reward_ep_mean)
+        ep_lr=ep_lr+1
+        
         if running_reward_max<running_reward and ep_total>1:
             
             running_reward_max=running_reward
             ep_lr=0
             max_reward_reset=max_reward_reset+1
-        
-  
-
-        print("running_reward:",running_reward)
-        print("max_running_reward:",running_reward_max)
-        
-        rr_set.append(running_reward)   
+            
+        rr.append(running_reward)   
         rr_idx=rr_idx+1
-        reward_mean_set.append(sum(rr_set)/rr_idx)
+        reward_mean.append(sum(rr)/rr_idx)
         
-        print("reward_mean:",reward_mean_set[rr_idx-1])
         if rr_idx>5:
             
-            reward_mean_max_rate.append(running_reward_max/reward_mean_set[rr_idx-1])
-        #if RL.learning_rate>0.001:
+            reward_mean_max_rate.append(running_reward_max/reward_mean[rr_idx-1])
+        Sum=tools.Summary()
+        Sum.summary(LOAD,var,M.pointer,M.capacity,reward_ep,running_reward,
+                running_reward_max,reward_mean,rr_idx,max_reward_reset,
+                action_ori,actor,reward_one_ep_mean,rr,critic,reward_mean_max_rate,ep_lr)
 
-        print("max_reward_reset:",max_reward_reset)
-
-        plt.subplot(321)
-        plt.plot(rr_set)  
-        plt.xlabel('episode steps')
-        plt.ylabel('runing reward')
-
-        #plt.subplot(432)
-        #plt.plot(vt)    # plot the episode vt
-        #plt.xlabel('episode steps')
-        #plt.ylabel('normalized state-action value')
-     
-        plt.subplot(323)
-        plt.plot(reward_mean_set)  
-        plt.xlabel('episode steps')
-        plt.ylabel('reward_mean')
+#        saver.save(sess,running_reward)
         
-        plt.subplot(324)
-        plt.plot(actor.angle)  
-        plt.xlabel('episode steps')
-        plt.ylabel('angle')
-        
-        plt.subplot(325)
-        plt.plot(actor.accelerate)  
-        plt.xlabel('episode steps')
-        plt.ylabel('accelerate')
-                
-        #plt.subplot(4,2,6)
-        #plt.plot(lr_set)  
-        #plt.xlabel('episode steps')
-        #plt.ylabel('learning rate')
-        
-        plt.subplot(3,2,6)
-        plt.plot(reward_mean_max_rate)  
-        plt.xlabel('episode steps')
-        plt.ylabel('reward Max/mean')
-# =============================================================================
-#         plt.subplot(4,3,11)
-#         plt.plot(distance_set)  
-#         plt.xlabel('episode steps')
-#         plt.ylabel('distance_set')
-#       
-# =============================================================================
-        plt.show()
         actor.angle=[]
         actor.accelerate=[]
+        actor.brake=[]
+        action_ori=[[],[],[],[],[],[]]
+        reward_ep=[]
 
         ep_total=ep_total+1
         print("totaol train:",ep_total)
-        print("LOAD:",LOAD)
-        ep_lr=ep_lr+1
-        print("lr ep :",ep_lr)
         summary=False
         
         

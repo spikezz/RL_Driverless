@@ -113,8 +113,10 @@ class Critic(object):
         self.gamma = gamma
         self.t_replace_iter = t_replace_iter
         self.t_replace_counter = 0
+        self.loss_step=0
         self.Momentum=0.9
-
+        self.model_localization=[]
+        
         with tf.variable_scope('Critic'):
             # Input (s, a), output q
             self.a = a
@@ -132,6 +134,7 @@ class Critic(object):
         with tf.variable_scope('TD_error'):
             self.loss = tf.reduce_mean(tf.squared_difference(self.target_q, self.q))
             tf.summary.scalar('loss_', self.loss)
+            
         with tf.variable_scope('C_train'):
 #            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
             self.train_op = tf.train.MomentumOptimizer(self.lr,self.Momentum).minimize(self.loss)
@@ -171,14 +174,18 @@ class Critic(object):
 
         return q
 
-    def learn(self, s, a, r, s_):
+    def learn(self, s, a, r, s_,ep_total):
         
+
         self.sess.run(self.soft_replace)
-        self.sess.run(self.train_op, feed_dict={S: s, self.a: a, R: r, S_: s_})
+        self.loss_summary=self.sess.run([self.train_op,self.loss_scalar], feed_dict={S: s, self.a: a, R: r, S_: s_})[1]  
+        self.writer.add_summary(self.loss_summary,self.loss_step)
         if self.t_replace_counter == self.t_replace_iter:
             self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
             self.t_replace_counter = 0
         self.t_replace_counter += 1
+        self.loss_step+=1
+        self.model_localization.append(ep_total)
         
 class Memory(object):
     
