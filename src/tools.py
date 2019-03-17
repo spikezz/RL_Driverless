@@ -49,7 +49,7 @@ class Saver(object):
             sess.run(tf.global_variables_initializer())
             os.mkdir(di_load)
     
-    def save(self,sess,running_reward,reward_ep_mean):
+    def save(self,sess,running_reward,reward_ep_mean,critic,ep_total):
         
         self.n_model+=1
         self.MODE.append(str(self.n_model))
@@ -65,11 +65,12 @@ class Saver(object):
         reward_str= 'running_reward:'+str(running_reward)+'\n'+'reward_ep_mean:'+str(reward_ep_mean)
         fw.seek(0,0)
         fw.write( reward_str)
-        
-        current_path = os.getcwd()
-        model_dir = os.path.join(current_path, 'logs')
-        writer=tf.summary.FileWriter(model_dir, sess.graph)
-        writer.close()
+
+#        current_path = os.getcwd()
+#        model_dir = os.path.join(current_path, 'logs')
+        critic.writer.add_graph(sess.graph,ep_total)
+#        writer=tf.summary.FileWriter(model_dir, sess.graph)
+#        writer.close()
         
 class Summary(object):
     

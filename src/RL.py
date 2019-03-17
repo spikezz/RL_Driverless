@@ -9,12 +9,12 @@ import tensorflow as tf
 import numpy as np
 
 
-np.random.seed(1)
-tf.set_random_seed(1)
+np.random.seed(2)
+tf.set_random_seed(2)
 
-H1=300
-H2=300
-input_dim = 140
+H1=140
+H2=140
+input_dim = 60
 TAU=0.01
 
 with tf.name_scope('S'):
@@ -40,6 +40,8 @@ class Actor(object):
         self.angle=[]
         self.accelerate=[]
         self.brake=[]
+        self.writer = tf.summary.FileWriter("/home/spikezz/Driverless/aktuelle zustand/RL_Driverless/src/logs")
+        
         
         with tf.variable_scope('Actor'):
             # input s, output a
@@ -57,7 +59,7 @@ class Actor(object):
         with tf.variable_scope(scope):
             
             #init_w = tf.contrib.layers.xavier_initializer()
-            init_w=tf.random_uniform_initializer(-0.23,0.23)
+            init_w=tf.random_uniform_initializer(-0.5,0.5)
             init_b=tf.random_uniform_initializer(-1,1)
             
             layer1 = tf.layers.dense(s, H1, activation=tf.nn.softplus,kernel_initializer=init_w, bias_initializer=init_b, name='l1',trainable=trainable)
@@ -114,16 +116,23 @@ class Critic(object):
         self.t_replace_iter = t_replace_iter
         self.t_replace_counter = 0
         self.loss_step=0
+#        self.one_ep_step=0
         self.Momentum=0.9
+        self.rank_q_max=0
+        self.rank_TD_max=0
+        self.rank_q_min=0
+        self.rank_TD_min=0
         self.model_localization=[]
+        self.writer = tf.summary.FileWriter("/home/spikezz/Driverless/aktuelle zustand/RL_Driverless/src/logs")
+        
         
         with tf.variable_scope('Critic'):
             # Input (s, a), output q
             self.a = a
-            self.q = self._build_net(S, self.a, 'eval_net', trainable=True)
+            self.q,self.q_rank = self._build_net(S, self.a, 'eval_net', trainable=True)
 
             # Input (s_, a_), output q_ for q_target
-            self.q_ = self._build_net(S_, a_, 'target_net', trainable=False)    # target_q is based on a_ from Actor's target_net
+            self.q_ = self._build_net(S_, a_, 'target_net', trainable=False)[0]   # target_q is based on a_ from Actor's target_net
 
             self.e_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/eval_net')
             self.t_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/target_net')
@@ -133,7 +142,7 @@ class Critic(object):
 
         with tf.variable_scope('TD_error'):
             self.loss = tf.reduce_mean(tf.squared_difference(self.target_q, self.q))
-            tf.summary.scalar('loss_', self.loss)
+            self.loss_scalar=tf.summary.scalar('loss_', self.loss)
             
         with tf.variable_scope('C_train'):
 #            self.train_op = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
@@ -145,9 +154,10 @@ class Critic(object):
         self.soft_replace = [tf.assign(t, (1 - TAU) * t + TAU * e) for t, e in zip(self.t_params, self.e_params)]
         
     def _build_net(self, s, a, scope, trainable):
+        
         with tf.variable_scope(scope):
             #init_w = tf.contrib.layers.xavier_initializer()
-            init_w=tf.random_uniform_initializer(-0.23,0.23)
+            init_w=tf.random_uniform_initializer(-0.5,0.5)
             init_b=tf.random_uniform_initializer(-1,1)
             
             with tf.variable_scope('l1'):
@@ -171,21 +181,57 @@ class Critic(object):
             with tf.variable_scope('q'):
                 q = tf.layers.dense(layer3,1,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
 #                q = tf.layers.dense(layer3,1,activation=tf.nn.tanh,kernel_initializer=init_w, bias_initializer=init_b, trainable=trainable)   # Q(s,a)
-
-        return q
-
-    def learn(self, s, a, r, s_,ep_total):
+                q_mean,q_var=tf.nn.moments(q,0)
+                self.q_scalar=tf.summary.scalar('q_scalar_', tf.reshape(q_mean,[]))
+                q_tg=tf.nn.tanh(q*0.001)
+                
+            with tf.variable_scope('q_scale'):
+                q_scale=tf.matmul(q_tg, [[100.]]) 
         
+        return q_scale,q
+
+    def learn(self, s, a, r, s_,ep_total):       
 
         self.sess.run(self.soft_replace)
-        self.loss_summary=self.sess.run([self.train_op,self.loss_scalar], feed_dict={S: s, self.a: a, R: r, S_: s_})[1]  
+        _, self.loss_summary, self.q_summary=self.sess.run([self.train_op,self.loss_scalar,self.q_scalar], feed_dict={S: s, self.a: a, R: r, S_: s_})
+#        print(self.sess.run(self.q_histogramm, feed_dict={S: s, self.a: a, R: r, S_: s_})[1])
         self.writer.add_summary(self.loss_summary,self.loss_step)
+        self.writer.add_summary(self.q_summary,self.loss_step)
         if self.t_replace_counter == self.t_replace_iter:
             self.sess.run([tf.assign(t, e) for t, e in zip(self.t_params, self.e_params)])
             self.t_replace_counter = 0
         self.t_replace_counter += 1
         self.loss_step+=1
+#        self.one_ep_step+=1
         self.model_localization.append(ep_total)
+        
+    def rank_priority(self,s, a, r, s_):
+        if self.loss_step==1000:
+            self.rank_TD_min=10000000
+        rank_q,rank_TD=self.sess.run([self.q_rank,self.loss], feed_dict={S: s, self.a: a, R: r, S_: s_})
+        rank_q=np.reshape(rank_q,())
+        if rank_q>self.rank_q_max:
+            self.rank_q_max=rank_q
+        if rank_TD>self.rank_TD_max:
+            self.rank_TD_max=rank_TD
+        if rank_q<self.rank_q_min:
+            self.rank_q_min=rank_q
+        if rank_TD<self.rank_TD_min:
+            self.rank_TD_min=rank_TD
+        return rank_q,rank_TD
+        if self.loss_step==1000:
+            print("rank_TD_max:",self.rank_TD_max,"rank_TD_min:",self.rank_TD_min)
+    def get_rank_probability(self,rank_q,rank_TD):
+        
+        rank_q_correction=rank_q+(0-(self.rank_q_min+(self.rank_q_max-self.rank_q_min)/2))
+        beta=3/(self.rank_q_max/2)#99%,1%
+        probability_q=np.exp(beta*rank_q_correction)/(1+np.exp(beta*rank_q_correction))
+        
+        rank_TD_correction=rank_TD+(0-(self.rank_TD_min+(self.rank_TD_max-self.rank_TD_min)/2))
+        beta=3/(self.rank_TD_max/2)#99%,1%
+        probability_TD=np.exp(beta*rank_TD_correction)/(1+np.exp(beta*rank_TD_correction))
+        
+        return probability_q,probability_TD
         
 class Memory(object):
     
@@ -194,8 +240,8 @@ class Memory(object):
         self.data = np.zeros((capacity, dims))
         self.pointer = 0
 
-    def store_transition(self, s, a, r, s_):
-        transition = np.hstack((s, a, [r], s_))
+    def store_transition(self, s, a, r, s_,rank_q,rank_TD):
+        transition = np.hstack((s, a, [r], s_,rank_q,rank_TD))
         index = self.pointer % self.capacity  # replace the old memory with new memory
         self.data[index, :] = transition
         self.pointer += 1

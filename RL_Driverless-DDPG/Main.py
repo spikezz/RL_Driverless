@@ -816,8 +816,8 @@ List_net.extend(List_ce)
 #saver = tf.train.Saver(var_list=List_net,max_to_keep=10000)
 saver = tf.train.Saver(max_to_keep=10000)
 
-#LOAD = False
-LOAD = True
+LOAD = False
+#LOAD = True
 
 n_model = 0
 MODE = ['0']
@@ -1207,132 +1207,7 @@ while True:
         #wheel 20
         
         #angle signal give to the object car
-#        
-#        if start_action==True:
-#            
-#            start_timer=True
-#            
-#            action = actor.choose_action(observation)
-#            probability=ss.softmax(np.array([action[3],action[4],action[5]]))
-##            print("actionout",action)
-#
-#            action[0] =action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
-#            action[1] =action[1] -(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
-#
-#            action_ori0.append(action[0])
-#            action_ori1.append(action[1])
-#            action_ori2.append(action[2])
-#            action_ori3.append(probability[0])
-#            action_ori4.append(probability[1])
-#            action_ori5.append(probability[2])
-#            
-##            print("probability",probability)
-##            action_ori3.append(action[3])
-##            action_ori4.append(action[4])
-##            action_ori5.append(action[5])
-##            print("action1",action)
-#            
-#            action[0] = np.clip(np.random.normal(action[0], var0), *ACTION_BOUND0)
-#            action[1] = np.clip(np.random.normal(action[1], var1), *ACTION_BOUND1)
-#            action[2] = np.clip(np.random.normal(action[2], var2), *ACTION_BOUND2)
-#            
-##            if car.speed<=1 and action[0]<0:
-##                action[0]=np.random.random_sample()*ACTION_BOUND0[1]
-##                print("action[0]:",action[0])
-#
-#               
-#            angle_old=angle
-#            
-#               
-#            if angle<half_Max_angle and angle>-half_Max_angle and angle+action[2]<half_Max_angle and angle+action[2]>-half_Max_angle:
-#                
-#                angle=angle+action[2]
-#            
-#            else:
-#                
-#                action[2]=0
-##            
-#            if sin_projection_blue<safty_distance_turning:
-#                
-#                punish_turning=True
-#                
-#                if sin_projection_blue<safty_distance_impact:
-#                    
-#                    angle=half_Max_angle
-#                    action[2]=half_Max_angle-angle_old             
-##                    while debug:
-##                        for event in pygame.event.get():
-##                            if event.unicode == '\d':
-##                                debug=False
-#                
-#                elif angle<half_Max_angle and angle>=0:
-#                    
-#                    action[2]=1
-#                    angle=angle+action[2]
-#                    
-#                elif angle>half_Max_angle*0.9 or angle<0:
-#                    
-#                    angle=0
-#                    action[2]=0-angle_old
-#
-#                    
-#            elif sin_projection_yellow<safty_distance_turning:
-#                
-#                punish_turning=True
-#                
-#                if sin_projection_yellow<safty_distance_impact:
-#                    
-#                    angle=-half_Max_angle
-#                    action[2]=-half_Max_angle-angle_old            
-##                    while debug:
-##                        for event in pygame.event.get():
-##                            if event.unicode == '\d':
-##                                debug=False
-#                elif angle>-half_Max_angle and angle<=0:
-#                    
-#                    action[2]=-1
-#                    angle=angle+action[2]   
-#                    
-#                elif angle<-half_Max_angle*0.9 or angle>0:
-#                    
-#                    angle=0
-#                    action[2]=0-angle_old
-#                    
-#            actor.angle.append(action[2])
-#            choice=np.random.choice(range(len(probability)),p=probability)
-##            print("sess.run(probability):",sess.run(probability))
-##            print("choice:",choice)
-#            if choice==0:
-#                car.accelerate(action[0])#beschleunigen
-#                actor.accelerate.append(action[0])
-#                actor.brake.append(0)
-#            elif choice==1:
-#                car.accelerate(action[1])#bremsen
-#                actor.brake.append(action[1])
-#                actor.accelerate.append(0)
-#                
-#            elif choice==2:
-#                actor.accelerate.append(0)
-#                actor.brake.append(0)
-#                
-#        car.wheelangle=angle
-#        model=cv.turning(model,angle,CENTER,half_middle_axis_length,half_horizontal_axis_length,radius_of_wheel,el_length)
-#    
-#        
-#        if angle>0 :
-#        
-#            car.rrl=model[19]
-#            car.steerleft()
-#            #vektor_speed=[car.speed*,car.speed*]
-#           
-#        elif angle<0  :
-#    
-#            car.rrr=model[21]
-#            car.steerright()
-#        
-#    
-#        model=cv.rotate(model,CENTER,car.dir)
-        
+
         dis_close_yellow_cone_1=1000
         
         for i in range (0, p+1):

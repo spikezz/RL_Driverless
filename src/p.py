@@ -1,4 +1,4 @@
-from airsim import ImageRequest
+#from airsim import ImageRequest
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Vector3
 from geometry_msgs.msg import Quaternion
@@ -11,17 +11,16 @@ from std_msgs.msg import Float32MultiArray
 
 import numpy as np
 import calculate as cal
-import matplotlib.pyplot as plt
 import tensorflow as tf
-import scipy.special as ss
+from scipy.special import softmax
 
 import airsim
 import rospy
-import os
 import tools
+import os
 import RL
 import time
-#import math
+import math
     
 time.sleep(2)
 
@@ -71,13 +70,13 @@ init_v_x=car_state.kinematics_estimated.linear_velocity.x_val
 init_v_y=car_state.kinematics_estimated.linear_velocity.y_val
 init_v_z=car_state.kinematics_estimated.linear_velocity.z_val
 #calibration white noise of velocity
-
+log_ep_old=2
 sin_projection_yellow=0
 sin_projection_blue=0
-
-safty_distance_turning=2.2
-safty_distance_impact=2.0
-collision_distance=1.8
+distance_coneback=None
+safty_distance_turning=2.0
+safty_distance_impact=1.6
+collision_distance=0.1
 punish_turnin=False
 reward_sum=0
 punish_batch_size=3
@@ -86,6 +85,7 @@ episode_time=1000
 elapsed_time=0
 time_stamp=0
 summary=False
+#LOAD=True
 LOAD=False
 collision=False
 collide_finish=False
@@ -93,6 +93,11 @@ running_reward_max=0
 running_reward=0
 ep_total=0
 ep_lr=0
+velocity_max=4.0
+acceleration_max=0.5
+acceleration_norm=None
+#algo_lock=False
+#algo_count=0
 action_ori=[[],[],[],[],[],[]]
 max_reward_reset=0
 rr_set=[]
@@ -112,11 +117,13 @@ rr_idx=0
 #set of runing reward
 count=0
 #minimal exploration wide of action
-VAR_MIN= [0.01,0.01,0.02]
-VAR_MIN_updated=[0.001,0.001,0.002]
+VAR_MIN= [0.04,0.04,0.06]
+#VAR_MIN= [0.002,0.002,0.004]
+VAR_MIN_updated=[0.004,0.004,0.006]
 #minimal exploration wide of action
 #initial exploration wide of action
-var= [0.1,0.1,0.1]
+var= [0.4,0.4,0.6]
+#var= [0.002,0.002,0.004]
 #initial exploration wide of action
 #dimension of action
 ACTION_DIM = 6
@@ -130,35 +137,35 @@ ACTION_BOUND2 = np.array([-1,1])
 ACTION_BOUND=np.array([0.5,0.5,1,1,1,1])
 #action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 # learning rate for actor
-LR_A = 1e-6
+LR_A = 5e-7
 # learning rate for actor
 # learning rate for critic
-LR_C = 1e-6
+LR_C = 5e-7
 # learning rate for critic
 # reward discount
 rd = 0.9
 # reward discount
 #after this learning number of main net update the target net of actor
-REPLACE_ITER_A = 1024
+REPLACE_ITER_A = 2048
 #after this learning number of main net update the target net of actor
 #after this learning number of main net update the target net of Critic
-REPLACE_ITER_C = 1024
+REPLACE_ITER_C = 2048
 #after this learning number of main net update the target net of Critic
 #occupied memory
-MEMORY_CAPACITY = 131072
-MEMORY_CAPACITY = 1024
+MEMORY_CAPACITY = 32768
+#MEMORY_CAPACITY = 1048576
 #occupied memory
 #size of memory slice
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 #size of memory slice
 probability=[]
-
+speed_projection=[0,0]
 #constant of distance measure
 bound_lidar=20
 #constant of distance measure
 
 state=[[],[],[],[],[],[]]
-input_dim=140
+input_dim=60
 #inputs state of RL Agent
 observation=np.zeros(input_dim)
 #inputs state of RL Agent
@@ -169,7 +176,11 @@ for t in range (0,input_dim):
     
     observation[t]=0
     observation_old[t]=0
-
+    
+time_stamp = time.time()
+list_blue_cone=client.simGetObjectPoses("RightCone")
+list_yellow_cone=client.simGetObjectPoses("LeftCone")  
+coneback=client.simGetObjectPoses("finish")
 #spawn=False
 ###constant of path
 #half_path_wide=4
@@ -184,7 +195,7 @@ actor = RL.Actor(sess, ACTION_DIM, ACTION_BOUND, LR_A,REPLACE_ITER_A)
 critic = RL.Critic(sess, input_dim, ACTION_DIM, LR_C, rd, REPLACE_ITER_A,actor.a, actor.a_)
 actor.add_grad_to_graph(critic.a_grads)
 
-M = RL.Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1)
+M = RL.Memory(MEMORY_CAPACITY, dims=2 * input_dim + ACTION_DIM + 1 + 2)
 saver = tools.Saver(sess,LOAD,actor,critic,all_var)
 
 while not rospy.is_shutdown():
@@ -212,24 +223,24 @@ while not rospy.is_shutdown():
         
 #    print("count:",count)
     
-    responses = client.simGetImages([ImageRequest("0", airsim.ImageType.Scene, False, False)])
-    response = responses[0]
-
-    img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)
-    
-    try:
-        img_rgba = img1d.reshape(response.height, response.width, 4)
-        img_rgba = np.flipud(img_rgba)
-        airsim.write_png(os.path.normpath('greener.png'), img_rgba) 
-        img_rgba = np.flipud(img_rgba)	
-        image_msg = Image()
-        image_msg.height = img_rgba.shape[0];
-        image_msg.width =  img_rgba.shape[1];
-        image_msg.encoding = 'rgba8';
-        image_msg.step = img_rgba.shape[0]*img_rgba.shape[1]*4
-        image_msg.data = img_rgba.tobytes();
-    except:
-        print("Image acquisition failed")
+#    responses = client.simGetImages([ImageRequest("0", airsim.ImageType.Scene, False, False)])
+#    response = responses[0]
+#
+#    img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8)
+#    
+#    try:
+#        img_rgba = img1d.reshape(response.height, response.width, 4)
+#        img_rgba = np.flipud(img_rgba)
+#        airsim.write_png(os.path.normpath('greener.png'), img_rgba) 
+#        img_rgba = np.flipud(img_rgba)	
+#        image_msg = Image()
+#        image_msg.height = img_rgba.shape[0];
+#        image_msg.width =  img_rgba.shape[1];
+#        image_msg.encoding = 'rgba8';
+#        image_msg.step = img_rgba.shape[0]*img_rgba.shape[1]*4
+#        image_msg.data = img_rgba.tobytes();
+#    except:
+#        print("Image acquisition failed")
 
 	#print(image_msg)
     
@@ -246,6 +257,7 @@ while not rospy.is_shutdown():
     ycn_msg=PoseArray()
     
     car_state = client.getCarState()
+    
     acc_msg.x=car_state.kinematics_estimated.linear_acceleration.x_val
     acc_msg.y=car_state.kinematics_estimated.linear_acceleration.y_val
     acc_msg.z=car_state.kinematics_estimated.linear_acceleration.z_val
@@ -253,7 +265,7 @@ while not rospy.is_shutdown():
     vel_msg.x=car_state.kinematics_estimated.linear_velocity.x_val-init_v_x
     vel_msg.y=car_state.kinematics_estimated.linear_velocity.y_val-init_v_y
     vel_msg.z=car_state.kinematics_estimated.linear_velocity.z_val-init_v_z
-    
+#    print("velocity:",vel_msg)
     a_a_msg.w=car_state.kinematics_estimated.angular_acceleration.to_Quaternionr().w_val
     a_a_msg.x=car_state.kinematics_estimated.angular_acceleration.to_Quaternionr().x_val
     a_a_msg.y=car_state.kinematics_estimated.angular_acceleration.to_Quaternionr().y_val
@@ -277,22 +289,26 @@ while not rospy.is_shutdown():
     
     (eul_msg.x, eul_msg.y, eul_msg.z) = cal.euler_from_quaternion([odo_msg.pose.pose.orientation.x, odo_msg.pose.pose.orientation.y, odo_msg.pose.pose.orientation.z, odo_msg.pose.pose.orientation.w])
 
-    act_msg.data.append(car_controls.throttle)
-    act_msg.data.append(car_controls.brake)
-    act_msg.data.append(car_controls.steering)
-#    print("act_msg.data",act_msg.data)
-#    
+#    print("acc_msg",acc_msg)
+#    print("vel_msg",vel_msg)
+#    print("a_a_msg",a_a_msg)
+#    print("a_v_msg",a_v_msg)
+#    print("odo_msg",odo_msg)
+#    print("eul_msg",eul_msg)
     elapsed_time=time.time()-time_stamp
-    if summary==False:
+#    print("time.time():",time.time())
+#    print("time_stamp:",time_stamp)
+#    print("elapsed_time:",elapsed_time)
         
-        list_blue_cone=client.simGetObjectPoses("RightCone")
-        list_yellow_cone=client.simGetObjectPoses("LeftCone")  
-        coneback=client.simGetObjectPoses("finish")
+    
+    
+#    elif summary==False and algo_lock==False:
+    if summary==False:   
+        
         bcn_msg.header.seq = 0
         bcn_msg.header.stamp = rospy.get_rostime()
         bcn_msg.header.frame_id = ""
- #       bcn_msg.poses=list_blue_cone
- 
+
         list_cone_sensored=[]
         
         dis_close_blue_cone_1=1000
@@ -301,18 +317,25 @@ while not rospy.is_shutdown():
         for c in list_blue_cone:
 #            print("c:",c)
             new_pose=Pose()
-#            new_pose.position = Point()
             new_pose.position.x=c.position.x_val
             new_pose.position.y=c.position.y_val
             new_pose.position.z=c.position.z_val
             bcn_msg.poses.append(new_pose)
-            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-    #      
+            try:
+                
+                distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+            
+            except:
+                
+                print("odo_msg",odo_msg.pose.pose.position)
+                print("cone",c)
+                
             if distance_cone< bound_lidar:
                 
                 list_cone_sensored.append([c.position.x_val,c.position.y_val])
                 
             if distance_cone<dis_close_blue_cone_1:
+                
                 blue_cone_close_1=[c.position.x_val,c.position.y_val]
                 dis_close_blue_cone_1=distance_cone
                 
@@ -321,20 +344,34 @@ while not rospy.is_shutdown():
         
         for c in list_blue_cone:
             
-            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+            try:
+                
+                distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
             
+            except:
+                
+                print("odo_msg",odo_msg.pose.pose.position)
+                print("cone",c)
+                
             if distance_cone<dis_close_blue_cone_2 and distance_cone>dis_close_blue_cone_1:
+                
                 blue_cone_close_2=[c.position.x_val,c.position.y_val]
                 dis_close_blue_cone_2=distance_cone
-                
-        dis_between_blue_cone=cal.calculate_r(blue_cone_close_1,blue_cone_close_2)
-        
+        try:   
+            
+            dis_between_blue_cone=cal.calculate_r(blue_cone_close_1,blue_cone_close_2)
+            v_cone_b=np.array(blue_cone_close_1)-np.array(blue_cone_close_2)
+            r_cone_b=cal.calculate_r(v_cone_b,[0,0])
+            
+        except:
+            
+            print(blue_cone_close_1,blue_cone_close_2)
+            
         sin_projection_blue=cal.calculate_projection(True,dis_close_blue_cone_1,dis_close_blue_cone_2,dis_between_blue_cone)[1]
         
         ycn_msg.header.seq = 0
         ycn_msg.header.stamp = rospy.get_rostime()
         ycn_msg.header.frame_id = ""
-#        ycn_msg.poses=list_yellow_cone
         
         dis_close_yellow_cone_1=1000
         yellow_cone_close_1=[]
@@ -346,13 +383,22 @@ while not rospy.is_shutdown():
             new_pose.position.y=c.position.y_val
             new_pose.position.z=c.position.z_val
             ycn_msg.poses.append(new_pose)
-            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
             
+            try:
+                
+                distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+            
+            except:
+                
+                print("odo_msg",odo_msg.pose.pose.position)
+                print("cone",c)
+                
             if distance_cone< bound_lidar:
                 
                 list_cone_sensored.append([c.position.x_val,c.position.y_val])
         
             if distance_cone<dis_close_yellow_cone_1:
+                
                 yellow_cone_close_1=[c.position.x_val,c.position.y_val]
                 dis_close_yellow_cone_1=distance_cone
                 
@@ -361,22 +407,58 @@ while not rospy.is_shutdown():
         
         for c in list_yellow_cone:
             
-            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
+            try:
+                
+                distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
             
+            except:
+                
+                print("odo_msg",odo_msg.pose.pose.position)
+                print("cone",c)
+                
             if distance_cone<dis_close_yellow_cone_2 and distance_cone>dis_close_yellow_cone_1:
+                
                 yellow_cone_close_2=[c.position.x_val,c.position.y_val]
                 dis_close_yellow_cone_2=distance_cone
-                
-        dis_between_yellow_cone=cal.calculate_r(yellow_cone_close_1,yellow_cone_close_2)
+        try:   
+            
+            dis_between_yellow_cone=cal.calculate_r(yellow_cone_close_1,yellow_cone_close_2)
+            v_cone_y=np.array(yellow_cone_close_1)-np.array(yellow_cone_close_2)
+            r_cone_y=cal.calculate_r(v_cone_y,[0,0])
+            
+        except:
+            
+            print(yellow_cone_close_1,yellow_cone_close_2)     
+     
         
         sin_projection_yellow=cal.calculate_projection(True,dis_close_yellow_cone_1,dis_close_yellow_cone_2,dis_between_yellow_cone)[1]
         
-        distance_coneback=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[coneback[0].position.x_val,coneback[0].position.y_val])
-        print("sin_projection_yellow:",sin_projection_yellow,"\n","sin_projection_blue:",sin_projection_blue,"\n","distance_coneback:",distance_coneback)
-        action = actor.choose_action(observation)
-        probability=ss.softmax(np.array([action[3],action[4],action[5]]))
-#            print("actionout",action)
 
+        v_speed=np.array([vel_msg.x,vel_msg.y])
+        speed_projection[0]=np.absolute(np.dot(v_speed,v_cone_b)/r_cone_b)
+        speed_projection[1]=np.absolute(np.dot(v_speed,v_cone_y)/r_cone_y)
+        reward_projection=(speed_projection[0]+speed_projection[1])/2
+#        print("vector blue cone:",v_cone_b)
+#        print("vector yellow cone:",v_cone_y)
+#        print("r_cone_b:",r_cone_b)
+#        print("r_cone_y:",r_cone_y)
+#        print("speed_projection:",speed_projection)
+        
+        try:
+            
+            distance_coneback=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[coneback[0].position.x_val,coneback[0].position.y_val])       
+#            print("sin_projection_yellow:",sin_projection_yellow,"\n","sin_projection_blue:",sin_projection_blue,"\n","distance_coneback:",distance_coneback)
+        
+        except:
+            
+            print("odo_msg",odo_msg.pose.pose.position)
+            print("coneback",coneback)
+#            print([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[coneback[0].position.x_val,coneback[0].position.y_val])
+            
+        action = actor.choose_action(observation)
+        probability=softmax(np.array([action[3],action[4],action[5]]))
+ 
+        actionorigin=action
         action[0] =action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
         action[1] =action[1] +(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
 
@@ -396,15 +478,25 @@ while not rospy.is_shutdown():
         action[0] = np.clip(np.random.normal(action[0], var[0]), *ACTION_BOUND0)
         action[1] = np.clip(np.random.normal(action[1], var[1]), *ACTION_BOUND1)
         action[2] = np.clip(np.random.normal(action[2], var[2]), *ACTION_BOUND2)
-     
+        
         if action[2]<1 and action[2]>-1 :
             
             car_controls.steering=float(action[2])
             
-        else:
+        elif action[2]<-1:
             
-            action[2]=0
-#            
+            action[2]=-1
+            car_controls.steering=float(action[2])
+            
+        elif action[2]>1: 
+            
+            action[2]=1
+            car_controls.steering=float(action[2])
+        #                    while debug:
+#                        for event in pygame.event.get():
+#                            if event.unicode == '\d':
+#                                debug=False
+        
         if sin_projection_blue<safty_distance_turning:
             
             punish_turning=True
@@ -413,10 +505,7 @@ while not rospy.is_shutdown():
                 
                 car_controls.steering=-1
                 action[2]=car_controls.steering       
-#                    while debug:
-#                        for event in pygame.event.get():
-#                            if event.unicode == '\d':
-#                                debug=False
+
             
             elif car_controls.steering>-1 and car_controls.steering<=0:
                 
@@ -453,23 +542,42 @@ while not rospy.is_shutdown():
         choice=np.random.choice(range(len(probability)),p=probability)
 #            print("sess.run(probability):",sess.run(probability))
 #            print("choice:",choice)
+#        acceleration_norm=math.sqrt(acc_msg.x**2+acc_msg.y**2+acc_msg.z**2)
+#        print("acceleration_norm:",acceleration_norm)
+
         if choice==0:
+            
             car_controls.brake=0
-            car_controls.throttle=float(action[0]) #beschleunigen
+#            if acceleration_norm<=acceleration_max and car_state.speed<=velocity_max:
+            if  car_state.speed<=velocity_max:
+                
+                car_controls.throttle=float(action[0]*10) #beschleunigen
+                
+            else:
+                
+                car_controls.throttle=0
+                action[0]=0
+#            print("action[0]*10",action[0]*10,"action[0]",action[0])
             actor.accelerate.append(action[0])
             actor.brake.append(0)
+            
         elif choice==1:
-            car_controls.throttle=0
+            
+#            car_controls.throttle=0
             car_controls.brake=float(action[1]) #bremsen
             actor.brake.append(action[1])
             actor.accelerate.append(0)
             
         elif choice==2:
+            
             actor.accelerate.append(0)
             actor.brake.append(0)
         #        car_controls.steering=float(action[1]) 
         client.setCarControls(car_controls)
-        
+#        if car_state.speed<0.1:
+#            print("actionorigin",action)
+#            print("probability",probability)
+#            print("actionout",action)
         qua_msg.w=odo_msg.pose.pose.orientation.w
         qua_msg.x=odo_msg.pose.pose.orientation.x
         qua_msg.y=odo_msg.pose.pose.orientation.y
@@ -515,12 +623,15 @@ while not rospy.is_shutdown():
         state[0]=cone_sort_end
         if len(state[0])!=0:
             state[0]=np.vstack(state[0]).ravel()
+        state[0]=state[0]/bound_lidar
     #    print("state[0]:",state[0])
-        state[1]=np.vstack([vel_msg.x,vel_msg.y,vel_msg.z]).ravel()
+        state[1]=np.vstack([vel_msg.x,vel_msg.y,vel_msg.z]).ravel()/velocity_max
         state[2]=np.vstack([acc_msg.x,acc_msg.y,acc_msg.z]).ravel()
         state[3]=np.vstack([a_a_msg.w,a_a_msg.x,a_a_msg.y,a_a_msg.z]).ravel()
         state[4]=np.vstack([a_v_msg.w,a_v_msg.x,a_v_msg.y,a_v_msg.z]).ravel()
-        state[5]=np.vstack([odo_msg.pose.pose.orientation.w,odo_msg.pose.pose.orientation.x,odo_msg.pose.pose.orientation.y,odo_msg.pose.pose.orientation.z]).ravel()
+#        state[5]=np.vstack([odo_msg.pose.pose.orientation.w,odo_msg.pose.pose.orientation.x,odo_msg.pose.pose.orientation.y,odo_msg.pose.pose.orientation.z]).ravel()
+        state[5]=np.vstack([eul_msg.x,eul_msg.y,eul_msg.z]).ravel()/math.pi
+        
         state_input=np.hstack((car_controls.steering,state[1],state[2],state[3],state[4],state[5]))  
     #    print("state_input:",state_input)
         
@@ -532,19 +643,23 @@ while not rospy.is_shutdown():
             
             observation[t]=state_input[t]
             
-    #    print("observation:",observation)
+#        print("observation:",observation)
            
-        reward=car_state.speed
+        reward=5*np.exp(reward_projection)
+#        if reward>400:
+#            print("reward_projection:",reward_projection,"speed_projection:",speed_projection)
 
 #        collision=client.simGetCollisionInfo().has_collisiond()
 #        print("Collision:",client.simGetCollisionInfo().has_collisiond)
         if sin_projection_yellow<collision_distance or sin_projection_blue<collision_distance:
                 
             collision=True
-                
-        if distance_coneback<collision_distance*10:
             
-            collide_finish=True
+        if distance_coneback!=None:
+            
+            if distance_coneback<5.0:
+                
+                collide_finish=True
 
         reward_sum=reward_sum+reward
 #        if elapsed_time>episode_time or collision==True: 
@@ -552,7 +667,7 @@ while not rospy.is_shutdown():
                 
             if collision==True :
 #                
-                reward=-pow(car_state.speed,3)
+                reward=-pow(car_state.speed,3)*5
  
             client.reset()
             reward_sum=reward_sum+reward
@@ -570,7 +685,11 @@ while not rospy.is_shutdown():
 #            distance=0
 #        print("reward_sum:",reward_sum)
         reward_ep.append(reward)
-        M.store_transition(observation_old, action, reward, observation)
+        rank_q,rank_TD=critic.rank_priority(np.reshape(observation_old,(1,input_dim)), np.reshape(action,(1,ACTION_DIM)), np.reshape(reward,(1,1)), np.reshape(observation,(1,input_dim)))
+#        print("rank_q:",rank_q,"rank_TD:",rank_TD)
+#        print("rank_q_max:",critic.rank_q_max,"rank_q_min:",critic.rank_q_min,"rank_TD_max:",critic.rank_TD_max,"rank_TD_min:",critic.rank_TD_min)
+#        print(critic.get_rank_probability(rank_q,rank_TD))
+        M.store_transition(observation_old, action, reward, observation,rank_q,rank_TD)
         
         #print("MEMORY_CAPACITY:",M.pointer)
         if M.pointer > MEMORY_CAPACITY:
@@ -599,25 +718,69 @@ while not rospy.is_shutdown():
                 var[2] = max([var[2]*0.999999, VAR_MIN_updated[2]])
                 
             b_M = M.sample(BATCH_SIZE)
-            b_s = b_M[:, :input_dim]
-            b_a = b_M[:, input_dim: input_dim + ACTION_DIM]
-            b_r = b_M[:, -input_dim - 1: -input_dim]
-            b_s_ = b_M[:, -input_dim:]
-            
-        #                print("b_M:",b_M)
-        #                print("b_s:",b_s)
-        #                print("b_a:",b_a)
-        #                print("b_r:",b_r)
-        #                print("b_s_:",b_s_)
+#            print("b_M:",b_M)
+            rank_q_temp=None
+            rank_TD_temp=None
+            p_temp_q=None
+            p_temp_TD=None
+            b_M_temp=[]
+            for m in b_M:
+                rank_q_temp=np.reshape(m[-2:-1],())
+                rank_TD_temp=np.reshape(m[-1:],())
+                p_temp_q,p_temp_TD=critic.get_rank_probability(rank_q_temp,rank_TD_temp)
+#                choice_q=np.random.choice(range(2),p=[p_temp_q,1-p_temp_q])
+#                print("m:",m)
+#                if choice_q==0:
+#                    b_M_temp.append(m)
+                choice_TD=np.random.choice(range(2),p=[p_temp_TD,1-p_temp_TD])
+                if choice_TD==0:
+                    b_M_temp.append(m)
+#                print("b_M_temp:",b_M_temp)
+#                print("choice_q:",choice_q,"\n")
+#                print("choice_TD:",choice_TD,"\n")
+#                print("p_temp_q:",p_temp_q,"\n")
+#                print("p_temp_TD:",p_temp_TD,"\n")
+#                print("b_rank_q:",rank_q_temp,"\n")
+#                print("b_rank_TD:",rank_TD_temp,"\n")
+
+                
+            b_M_temp=np.array(b_M_temp)
+#            print("b_M_temp:",b_M_temp)
+            b_s = b_M_temp[:, :input_dim]
+            b_a = b_M_temp[:, input_dim: input_dim + ACTION_DIM]
+            b_r = b_M_temp[:, -input_dim - 3: -input_dim-2]
+            b_s_ = b_M_temp[:, -input_dim-2:-2]
+            b_rank_q = b_M_temp[:, -2:-1]
+            b_rank_TD = b_M_temp[:, -1:]
+#            print("b_M:",b_M)
+#            print("b_M_temp:",b_M_temp)
+#            print("b_s:",b_s)
+#            print("b_a:",b_a)
+#            print("b_r:",b_r)
+#            print("b_s_:",b_s_)
+#            print("b_rank_q:",b_rank_q)
+#            print("b_rank_TD:",b_rank_TD)
+#            print("len b_M:",len(b_M_temp))
+#            if b_M_temp!=[]:
+                
             critic.learn(b_s, b_a, b_r, b_s_,ep_total)
             actor.learn(b_s)
             
         observation_old=observation
-        
+#        algo_lock=True
+
+#    elif algo_lock==True:
+##        print("algo_count:",algo_count)
+#        if algo_count<1:
+#            algo_count+=1
+#        else:
+#            algo_count=0
+#            algo_lock=False
     else:
            
         reward_ep_mean=np.mean(reward_ep)
         reward_one_ep_mean.append(reward_ep_mean)
+
         ep_lr=ep_lr+1
         
         if running_reward_max<running_reward and ep_total>1:
@@ -633,25 +796,33 @@ while not rospy.is_shutdown():
         if rr_idx>5:
             
             reward_mean_max_rate.append(running_reward_max/reward_mean[rr_idx-1])
+            
+        saver.save(sess,running_reward,reward_ep_mean,critic,ep_total)
         Sum=tools.Summary()
         Sum.summary(LOAD,var,M.pointer,M.capacity,reward_ep,running_reward,
                 running_reward_max,reward_mean,rr_idx,max_reward_reset,
                 action_ori,actor,reward_one_ep_mean,rr,critic,reward_mean_max_rate,ep_lr)
-
-#        saver.save(sess,running_reward)
-        
+#        critic.one_ep_step=0
         actor.angle=[]
         actor.accelerate=[]
         actor.brake=[]
         action_ori=[[],[],[],[],[],[]]
         reward_ep=[]
+      
+        if np.floor(np.log10(ep_total))>log_ep_old:
+            
+            actor.lr=actor.lr/10
+            critic.lr=critic.lr/10
+            log_ep_old=np.floor(np.log10(ep_total))
+            
+        print("learning rate actor:",actor.lr,"learning rate critic:",critic.lr)
 
         ep_total=ep_total+1
         print("totaol train:",ep_total)
-        summary=False
+        print("\n")
+        summary=False  
         
-        
-    pub_I.publish(image_msg)
+#    pub_I.publish(image_msg)
     pub_acceleration.publish(acc_msg)
     pub_velocity.publish(vel_msg)
     pub_angular_acceleration.publish(a_a_msg)
