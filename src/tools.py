@@ -49,7 +49,7 @@ class Saver(object):
             sess.run(tf.global_variables_initializer())
             os.mkdir(di_load)
     
-    def save(self,sess,running_reward,reward_ep_mean,critic,ep_total):
+    def save(self,sess,running_reward,reward_ep_mean):
         
         self.n_model+=1
         self.MODE.append(str(self.n_model))
@@ -68,17 +68,17 @@ class Saver(object):
 
 #        current_path = os.getcwd()
 #        model_dir = os.path.join(current_path, 'logs')
-        critic.writer.add_graph(sess.graph,ep_total)
-#        writer=tf.summary.FileWriter(model_dir, sess.graph)
-#        writer.close()
+
+
         
 class Summary(object):
     
     def summary(self,LOAD,var,pointer,capacity,reward_ep,running_reward,
                 running_reward_max,reward_mean,rr_idx,max_reward_reset,
-                action_ori,actor,reward_one_ep_mean,rr,critic,reward_mean_max_rate,ep_lr):
+                action_ori,actor,reward_one_ep_mean,rr,critic,reward_mean_max_rate,ep_lr,time_set):
         
         print("LOAD:",LOAD)
+        print("critic.rank_TD_max:",critic.rank_TD_max,"critic.rank_TD_min:",critic.rank_TD_min)
 #        print("FPS:",clock.get_fps())
         print("var0:",var[0],"var1:",var[1],"var2:",var[2])
         print("MEMORY_pointer:",pointer)
@@ -166,10 +166,15 @@ class Summary(object):
         plt.ylabel('reward Max/mean')
         
         plt.figure()
-        plt.subplot(111)
+        plt.subplot(211)
         plt.plot(critic.model_localization)
         plt.xlabel('learning steps')
         plt.ylabel('model_localization')
+        plt.subplot(212)
+        plt.plot(time_set)
+        plt.xlabel('cycle steps')
+        plt.ylabel('time_set')
+
         
         plt.show()
         
