@@ -1,0 +1,12 @@
+roscore
+
+rostopic echo action
+rostopic echo acceleration
+rostopic echo velocity
+rostopic echo position
+rostopic echo orientation
+rostopic echo action
+
+source ~/virtualenv/py36/bin/activate
+cd ~/KaratUnreal/catkin_ws/c/airsiminterface/src
+python p.py

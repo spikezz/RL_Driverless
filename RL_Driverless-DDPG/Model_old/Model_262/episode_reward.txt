@@ -1,2 +1,0 @@
-running_reward:93082.49708502468
-reward_ep_mean:133.53443189428975

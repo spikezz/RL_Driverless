@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 26 13:23:00 2019
+
+@author: spikezz
+"""
 #from airsim import ImageRequest
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Vector3
@@ -12,15 +19,16 @@ from std_msgs.msg import Float32MultiArray
 import numpy as np
 import calculate as cal
 import tensorflow as tf
-from scipy.special import softmax
+import copy as cp
+#from scipy.special import softmax
 
 import airsim
-import rospy
+import rospy as rp
 import tools
-import os
+#import os
 import RL
 import time
-import math
+#import math
 
 #track_wrapper=ptw.PythonTrackWrapper([(0,0)],[(0,0)],(0,0))
 
@@ -49,22 +57,22 @@ def set_steering(data):
     client.setCarControls(car_controls)
     print("befehl:",data.data)
     
-rospy.init_node('publish', anonymous=True)
-pub_I = rospy.Publisher('UnrealImage', Image, queue_size=1000)
-pub_E = rospy.Publisher('O_to_E', Vector3, queue_size=1000)
-pub_velocity = rospy.Publisher('velocity', Vector3, queue_size=1000)
-pub_acceleration = rospy.Publisher('acceleration', Vector3, queue_size=1000)
-pub_angular_acceleration = rospy.Publisher('angular_acceleration', Quaternion, queue_size=1000)
-pub_angular_velocity = rospy.Publisher('angular_velocity', Quaternion, queue_size=1000)
-pub_Odometry_auto = rospy.Publisher('Odometry_auto', Odometry, queue_size=1000)
-pub_action = rospy.Publisher('action', Float32MultiArray, queue_size=1000)
-pub_blue_cone=rospy.Publisher('rightCones', PoseArray, queue_size=1000)
-pub_yellow_cone=rospy.Publisher('leftCones', PoseArray, queue_size=1000)
+rp.init_node('publish', anonymous=True)
+pub_I = rp.Publisher('UnrealImage', Image, queue_size=1000)
+pub_E = rp.Publisher('O_to_E', Vector3, queue_size=1000)
+pub_velocity = rp.Publisher('velocity', Vector3, queue_size=1000)
+pub_acceleration = rp.Publisher('acceleration', Vector3, queue_size=1000)
+pub_angular_acceleration = rp.Publisher('angular_acceleration', Quaternion, queue_size=1000)
+pub_angular_velocity = rp.Publisher('angular_velocity', Quaternion, queue_size=1000)
+pub_Odometry_auto = rp.Publisher('Odometry_auto', Odometry, queue_size=1000)
+pub_action = rp.Publisher('action', Float32MultiArray, queue_size=1000)
+pub_blue_cone=rp.Publisher('rightCones', PoseArray, queue_size=1000)
+pub_yellow_cone=rp.Publisher('leftCones', PoseArray, queue_size=1000)
 #pub_Q = rospy.Publisher('Quaternion', Quaternion, queue_size=1000)
 #sub_throt=rospy.Subscriber("throttle",Float64,set_throttle)
 #sub_steer=rospy.Subscriber("steeringAngle",Float64, set_steering)
 
-rate = rospy.Rate(60) # 10hz
+rate = rp.Rate(60) # 10hz
 car_state = client.getCarState()
 
 #calibration white noise of velocity
@@ -72,13 +80,14 @@ init_v_x=car_state.kinematics_estimated.linear_velocity.x_val
 init_v_y=car_state.kinematics_estimated.linear_velocity.y_val
 init_v_z=car_state.kinematics_estimated.linear_velocity.z_val
 #calibration white noise of velocity
+
 log_ep_old=2
 sin_projection_yellow=0
 sin_projection_blue=0
 distance_coneback=None
 safty_distance_turning=2.2
 safty_distance_impact=1.2
-noise_bound=2.4
+noise_bound=2.33
 noise_factor_blue=0
 noise_factor_yellow=0
 collision_distance=0.5
@@ -109,9 +118,23 @@ actor_lock=False
 time_set=[]
 #algo_lock=False
 #algo_count=0
-action_old=[0,0,0,0,0,0]
+#dimension of action
+ACTION_DIM = 2
+#dimension of action
+#action boundary
+ACTION_BOUND0 = np.array([-0.5,0.5])
+ACTION_BOUND1 = np.array([-0.5,0.5])
+ACTION_BOUND2 = np.array([-1,1])
+#action boundary
+#action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
+#ACTION_BOUND=np.array([0.5,0.5,1,1,1,1])
+#ACTION_BOUND=np.array([1])
+ACTION_BOUND=np.array([0.5,1])
+#action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
+actionorigin=np.zeros(ACTION_DIM)
+action_old=np.zeros(ACTION_DIM)
+actionorigin_old=np.zeros(ACTION_DIM)
 action_ori=[[],[],[],[],[],[]]
-
 reward=[0,0,0]
 max_reward_reset=0
 rr_set=[]
@@ -131,30 +154,22 @@ rr_idx=0
 #set of runing reward
 count=0
 #minimal exploration wide of action
-VAR_MIN= [0.01,0.01,0.02]
+VAR_MIN= [0.001,0.001,0.002]
 #VAR_MIN= [0.002,0.002,0.004]
 VAR_MIN_updated=[0.001,0.001,0.002]
 #minimal exploration wide of action
 #initial exploration wide of action
 #var= [0.1,0.1,0.1]
-var= [0.1,0.2,0.2]
+var= [0.001,0.002,0.002]
 #initial exploration wide of action
-#dimension of action
-ACTION_DIM = 6
-#dimension of action
-#action boundary
-ACTION_BOUND0 = np.array([-0.5,0.5])
-ACTION_BOUND1 = np.array([-0.5,0.5])
-ACTION_BOUND2 = np.array([-1,1])
-#action boundary
-#action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
-ACTION_BOUND=np.array([0.5,0.5,1,1,1,1])
-#action boundary a[0]*ACTION_BOUND[0],a[1]*ACTION_BOUND[1]
 # learning rate for actor
 LR_A = 1.25e-8
 # learning rate for actor
+# imitation learning rate for actor
+LR_I = 1.25e-4
+# imitation learning rate for actor
 # learning rate for critic
-LR_C = 1.25e-7
+LR_C = 6.25e-8
 # learning rate for critic
 # reward discount
 rd = 0.9
@@ -166,13 +181,13 @@ REPLACE_ITER_A = 1024
 REPLACE_ITER_C = 1024
 #after this learning number of main net update the target net of Critic
 #occupied memory
-MEMORY_CAPACITY = 2048
-MEMORY_CAPACITY_BOUND = 65536
+MEMORY_CAPACITY = 256
+MEMORY_CAPACITY_BOUND = 4096
 #MEMORY_CAPACITY = 1048576
 C_TD=8192
 #occupied memory
 #size of memory slice
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 #size of memory slice
 probability=[]
 speed_projection=[0,0]
@@ -187,16 +202,13 @@ observation=np.zeros(input_dim)
 #inputs state of RL Agent
 #copy the state
 observation_old=np.zeros(input_dim)
-#copy the state
-for t in range (0,input_dim):
-    
-    observation[t]=0
-    observation_old[t]=0
-    
+
 time_stamp = time.time()
 list_blue_cone=client.simGetObjectPoses("RightCone")
 list_yellow_cone=client.simGetObjectPoses("LeftCone")  
 coneback=client.simGetObjectPoses("finish")
+print("list_blue_cone",len(list_blue_cone))
+print("list_yellow_cone",len(list_yellow_cone))
 #spawn=False
 ###constant of path
 #half_path_wide=4
@@ -205,17 +217,18 @@ coneback=client.simGetObjectPoses("finish")
 #cone.auto_spawn(spawn,half_path_wide,delta_path,car_state)
 
 all_var=True
+reinforcement=False
 sess = tf.Session()
 
-actor = RL.Actor(sess, ACTION_DIM,input_dim, ACTION_BOUND, LR_A,REPLACE_ITER_A)
-critic = RL.Critic(sess, input_dim, ACTION_DIM, LR_C, rd, REPLACE_ITER_A,actor.a, actor.a_,C_TD)
+actor = RL.Actor(sess, ACTION_DIM,input_dim, ACTION_BOUND, LR_A,LR_I,REPLACE_ITER_A)
+critic = RL.Critic(sess, ACTION_DIM, input_dim, LR_C, rd, REPLACE_ITER_A,actor.a, actor.a_,C_TD)
 actor.add_grad_to_graph(critic.a_grads)
 
-M = RL.Memory(MEMORY_CAPACITY,MEMORY_CAPACITY_BOUND, dims=2 * input_dim + ACTION_DIM + 1 + 2)
-saver = tools.Saver(sess,LOAD,actor,critic,all_var)
+M = RL.Memory(MEMORY_CAPACITY,MEMORY_CAPACITY_BOUND, dims=2 * input_dim + 2*ACTION_DIM + 1 + 2)
+saver = tools.Saver(sess,LOAD,actor,critic,all_var,reinforcement)
 critic.writer.add_graph(sess.graph,ep_total)
 
-while not rospy.is_shutdown():
+while not rp.is_shutdown():
 #    
 #    if count<30:
 ##        
@@ -261,7 +274,9 @@ while not rospy.is_shutdown():
 
 	#print(image_msg)
     
+    car_state = client.getCarState()
     time_stamp = time.time()
+    
     acc_msg=Vector3()
     vel_msg=Vector3()
     a_a_msg=Quaternion()
@@ -273,7 +288,6 @@ while not rospy.is_shutdown():
     bcn_msg=PoseArray()
     ycn_msg=PoseArray()
     
-    car_state = client.getCarState()
     
     acc_msg.x=car_state.kinematics_estimated.linear_acceleration.x_val
     acc_msg.y=car_state.kinematics_estimated.linear_acceleration.y_val
@@ -294,7 +308,7 @@ while not rospy.is_shutdown():
     a_v_msg.z=car_state.kinematics_estimated.angular_velocity.to_Quaternionr().z_val
 #    print("a_a_msg:",a_a_msg)
     odo_msg.header.seq = 0
-    odo_msg.header.stamp = rospy.get_rostime()
+    odo_msg.header.stamp = rp.get_rostime()
     odo_msg.header.frame_id = ""
     odo_msg.pose.pose.position.x=car_state.kinematics_estimated.position.x_val
     odo_msg.pose.pose.position.y=car_state.kinematics_estimated.position.y_val
@@ -323,7 +337,7 @@ while not rospy.is_shutdown():
     if summary==False:   
         
         bcn_msg.header.seq = 0
-        bcn_msg.header.stamp = rospy.get_rostime()
+        bcn_msg.header.stamp = rp.get_rostime()
         bcn_msg.header.frame_id = ""
 
         list_cone_sensored=[]
@@ -341,7 +355,7 @@ while not rospy.is_shutdown():
             try:
                 
                 distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-            
+                
             except:
                 
                 print("odo_msg",odo_msg.pose.pose.position)
@@ -355,6 +369,8 @@ while not rospy.is_shutdown():
                 
                 blue_cone_close_1=[c.position.x_val,c.position.y_val]
                 dis_close_blue_cone_1=distance_cone
+#                print("dis_close_blue_cone_1",dis_close_blue_cone_1)
+#                print("distance_cone",distance_cone)
                 
         dis_close_blue_cone_2=1000
         blue_cone_close_2=[]
@@ -387,7 +403,7 @@ while not rospy.is_shutdown():
         sin_projection_blue=cal.calculate_projection(True,dis_close_blue_cone_1,dis_close_blue_cone_2,dis_between_blue_cone)[1]
         
         ycn_msg.header.seq = 0
-        ycn_msg.header.stamp = rospy.get_rostime()
+        ycn_msg.header.stamp = rp.get_rostime()
         ycn_msg.header.frame_id = ""
         
         dis_close_yellow_cone_1=1000
@@ -474,44 +490,55 @@ while not rospy.is_shutdown():
 
 
         action = actor.choose_action(observation,critic,ep_total)
-        probability=softmax(np.array([action[3],action[4],action[5]]))
- #        actionorigin=action
-        action_ori[0].append(action[0])
-        action_ori[1].append(action[1])
-        action_ori[2].append(action[2])
-        action_ori[3].append(probability[0])
-        action_ori[4].append(probability[1])
-        action_ori[5].append(probability[2])
-#
-        action[0] = np.clip(np.random.normal(action[0], var[0]), *ACTION_BOUND0)
-        action[1] = np.clip(np.random.normal(action[1], var[1]), *ACTION_BOUND1)
+        actionorigin=cp.copy(action)
+
+        action_ori[0].append(actionorigin[0])
+        action_ori[1].append(actionorigin[1])
+#        action_ori[2].append(actionorigin[2])
+#        
+#        #teacher
+#        action[0] = action[0]+0.2
+#        action[0] = np.clip(np.random.normal(action[0], var[0]), *ACTION_BOUND0)
+#        action[1] = np.clip(np.random.normal(action[1], var[1]), *ACTION_BOUND1)
         
-        noise_factor_blue=np.exp(-sin_projection_blue+1)-0.23
-        noise_factor_yellow=np.exp(-sin_projection_yellow+1)-0.23
         
-        noise_factor_blue=-np.exp(2*(sin_projection_blue-2.35))+1.3
-        noise_factor_yellow=-np.exp(2*(sin_projection_yellow-2.35))+1.3
+        noise_factor_blue = -np.exp(1.4*(sin_projection_blue-2.5))+1.
+        noise_factor_yellow = -np.exp(1.4*(sin_projection_yellow-2.5))+1.
         
+#        if sin_projection_blue<noise_bound:
+#            
+#            action[2]=action[2]-noise_factor_blue
+#            
+#        if sin_projection_yellow<noise_bound:
+#            
+#            action[2]=action[2]+noise_factor_yellow
+#          
+#        action[2] = np.clip(np.random.normal(action[2], var[2]), *ACTION_BOUND2)
+#        
         if sin_projection_blue<noise_bound:
             
-            action[2]=action[2]-noise_factor_blue
-#            print("sin_projection_blue",sin_projection_blue)
-#            print("noise_factor_blue",noise_factor_blue)
+            action[1]=action[1]-noise_factor_blue
             
         if sin_projection_yellow<noise_bound:
             
-            action[2]=action[2]+noise_factor_yellow
-#            print("sin_projection_yellow",sin_projection_yellow)
-#            print("noise_factor_yellow",noise_factor_yellow)
-#            
-        action[2] = np.clip(np.random.normal(action[2], var[2]), *ACTION_BOUND2)
+            action[1]=action[1]+noise_factor_yellow
+          
+        action[1] = np.clip(np.random.normal(action[1], var[2]), *ACTION_BOUND2)
         
-        action_corr=[action[0],action[1]]
-        action_corr[0] = action_corr[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])*0.7
-#        action_corr[0] =np.clip(action_corr[0],*ACTION_BOUND0)
-        action_corr[1] = action_corr[1] +(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+        #教学加工后，匹配到外部信号模式
+#        action_corr=[action[0],action[1]]
+#        
+#        action_corr[0] = action[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+#        action_corr[1] = action[1] +(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+        #教学加工后，匹配到外部信号模式
         
-        car_controls.steering=float(action[2])
+        car_controls.steering=float(actionorigin[1])
+#        car_controls.steering=float(actionorigin[2])
+        
+#        print("car_controls.steering:",car_controls.steering)
+#        print("actionorigin[2]:",actionorigin[2])
+#        print("action[2] :",action[2] )
+#        car_controls.steering=float(action[2])
         
 #            print("probability",probability)
 #            action_ori3.append(action[3])
@@ -588,88 +615,96 @@ while not rospy.is_shutdown():
 #                car_controls.steering=0
 #                action[2]=car_controls.steering
                 
-                
-        actor.angle.append(action[2])
+        actor.angle.append(action[1])       
+#        actor.angle.append(action[2])
+        
+        if  car_state.speed<=velocity_max/4:
+            
+            action[0]=0.5
+          
+        else:
+            
+            action[0]=-0.5
+            
+        car_controls.throttle=float(actionorigin[0])+(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+        
+        actor.accelerate.append(action[0])
+###        if action_lock==False:
+#        actionorigin_corr=[actionorigin[0], actionorigin[1]]
+#        actionorigin_corr[0] = actionorigin[0] +(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+#        actionorigin_corr[1] = actionorigin[1] +(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
 #        
-##        if action_lock==False:
-            
-        choice=np.random.choice(range(len(probability)),p=probability)
-#            print("sess.run(probability):",sess.run(probability))
-#            print("choice:",choice)
-#        acceleration_norm=math.sqrt(acc_msg.x**2+acc_msg.y**2+acc_msg.z**2)
-#        print("acceleration_norm:",acceleration_norm)
-
-#        if sin_projection_blue>safty_distance_impact and sin_projection_yellow>safty_distance_impact and car_state.speed<=velocity_min_impact:
-        
-        if choice==0:
-            
-            car_controls.brake=0
-            action_corr[1]=car_controls.brake
-#            action[1]=action_corr[1]-(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
-            if  car_state.speed<=velocity_max:
-                
-                car_controls.throttle=float(action_corr[0]) #beschleunigen
-                action_lock=True
-                
-            else:
-                
-                car_controls.throttle=0
-                action_corr[0]=car_controls.throttle
-#                action[0]=action_corr[0]-(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
-#            print("action[0]*10",action[0]*10,"action[0]",action[0])
-            actor.accelerate.append(action_corr[0])
-            actor.brake.append(action_corr[1])
-            
-        elif choice==1:
-            
-            car_controls.throttle=0
-            action_corr[0]=car_controls.throttle
-#            action[0]=action_corr[0]-(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
-            
-            if  car_state.speed>=velocity_min:
-                car_controls.brake=float(action_corr[1]) #bremsen
-
-            else:
-                car_controls.brake=0#bremsen
-                action_corr[1]=car_controls.brake
-#                action[1]=action_corr[1]-(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
-            
-            actor.brake.append(action_corr[1])         
-            actor.accelerate.append(action_corr[0])
-     
-            
-        elif choice==2:
-            
-            action_corr[0]=car_controls.throttle
-#            action[0]=action_corr[0]-(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
-            action_corr[1]=car_controls.brake
-#            action[1]=action_corr[1]-(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
-            actor.accelerate.append(action_corr[0])
-            actor.brake.append(action_corr[1])
-#        else:
+#        probability=softmax(np.array([action[3],action[4],action[5]]))
+#                
+#        action_ori[3].append(probability[0])
+#        action_ori[4].append(probability[1])
+#        action_ori[5].append(probability[2])
+#        
+#        choice=np.random.choice(range(len(probability)),p=probability)
+#        
+##            print("sess.run(probability):",sess.run(probability))
+##            print("choice:",choice)
+##        acceleration_norm=math.sqrt(acc_msg.x**2+acc_msg.y**2+acc_msg.z**2)
+##        print("acceleration_norm:",acceleration_norm)
+#
+##        if sin_projection_blue>safty_distance_impact and sin_projection_yellow>safty_distance_impact and car_state.speed<=velocity_min_impact:
+#        
+#        if choice==0:
 #            
-#            action_corr[0]=car_controls.throttle
-#            action_corr[1]=car_controls.brake
-#            action[0]=action_corr[0]-(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
-#            action[1]=action_corr[1]-(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
-#            actor.accelerate.append(action_corr[0])
-#            actor.brake.append(action_corr[1])
+#            car_controls.brake=0
+#            actionorigin_corr[1]=0
+##            action_corr[1]=0
+#            action[1]=0-(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
 #            
-#            action_count+=1
-##            print("action_count:",action_count)
-#            if action_count>action_lock_cycle:
-#                action_lock=False     
-#                action_count=0
-#                    car_controls.steering=float(action[1]) 
+#            if  car_state.speed<=velocity_max:
+#                
+#                car_controls.throttle=float(actionorigin_corr[0]) #beschleunigen
+#                action_lock=True
+#                
+#            else:
+#                
+#                car_controls.throttle=0
+#                actionorigin_corr[0]=0
+#                action[0]=0-(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+#                
+#
+#            actor.accelerate.append(action[0])
+#            actor.brake.append(action[1])
+##            actor.brake.append(action_corr[1])
+#            
+#        elif choice==1:
+#            
+#            car_controls.throttle=0
+#            actionorigin_corr[0]=0
+##            action_corr[0]=car_controls.throttle
+#            action[0]=0-(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+#
+#            if  car_state.speed>=velocity_min:
+#                
+#                car_controls.brake=float(actionorigin_corr[1]) #bremsen
+#                
+#            else:
+#                
+#                car_controls.brake=0#bremsen
+#                actionorigin_corr[1]=0               
+#                action[1]=0-(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+#                
+#            actor.brake.append(action[1])                    
+#            actor.accelerate.append(action[0])
+#            
+#            
+#        elif choice==2:
+#            
+#            actionorigin_corr[0]=car_controls.throttle
+#            action[0]=actionorigin_corr[0]-(ACTION_BOUND0[1]-ACTION_BOUND0[0])/2
+#            actionorigin_corr[1]=car_controls.brake
+#            action[1]=actionorigin_corr[1]-(ACTION_BOUND1[1]-ACTION_BOUND1[0])/2
+#            actor.accelerate.append(action[0])
+#            actor.brake.append(action[1])
             
-        
+       
         client.setCarControls(car_controls)
             
-
-#        if car_state.speed<0.1:
-#            print("actionorigin",action)
-#            print("probability",probability)
-#            print("actionout",action)
         qua_msg.w=odo_msg.pose.pose.orientation.w
         qua_msg.x=odo_msg.pose.pose.orientation.x
         qua_msg.y=odo_msg.pose.pose.orientation.y
@@ -684,21 +719,7 @@ while not rospy.is_shutdown():
         cone_sort_end=[]
         x_auto=odo_msg.pose.pose.position.x
         y_auto=odo_msg.pose.pose.position.y
-#        for c in list_blue_cone:   
-#    
-#            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-#    #      
-#            if distance_cone< bound_lidar:
-#                
-#                list_cone_sensored.append([c.position.x_val,c.position.y_val])
-                
-#        for c in list_yellow_cone:
-#    
-#            distance_cone=cal.calculate_r([odo_msg.pose.pose.position.x,odo_msg.pose.pose.position.y],[c.position.x_val,c.position.y_val])
-#            
-#            if distance_cone< bound_lidar:
-#                
-#                list_cone_sensored.append([c.position.x_val,c.position.y_val])
+
                 
         for i in range (len(list_cone_sensored)):
                   
@@ -711,6 +732,7 @@ while not rospy.is_shutdown():
 #        print("cone_sort_temp:",cone_sort_temp)
 
         for i in range (len(cone_sort_temp)):
+            
             cone_vector.append([0,0])
             cone_vector[i][0]=cone_sort_temp[i][1][0]-x_auto
             cone_vector[i][1]=cone_sort_temp[i][1][1]-y_auto
@@ -718,7 +740,7 @@ while not rospy.is_shutdown():
             
 #        print("cone_sort_end:",cone_sort_end)
         
-        state[0]=cone_sort_end
+        state[0]=cp.copy(cone_sort_end)
         
         if len(state[0])!=0:
             state[0]=np.vstack(state[0]).ravel()
@@ -775,17 +797,14 @@ while not rospy.is_shutdown():
 #        if elapsed_time>episode_time or collision==True: 
         if collision==True or collide_finish==True: 
             
-#            try:
-
-            actor.merge_summary_end(observation[np.newaxis, :],time_step,critic)
+            actor.Merge_Summary_End(observation[np.newaxis, :],actionorigin[np.newaxis, :],time_step,critic)
         
-            if M.pointer > MEMORY_CAPACITY:
-            
-                critic.merge_summary_end(observation_old[np.newaxis, :], action[np.newaxis, :],\
-                                         observation[np.newaxis, :], np.array([reward[0]])[np.newaxis, :],\
-                                         np.array([reward[1]])[np.newaxis, :],np.array([reward[2]])[np.newaxis, :])
-#            except:
-#                print("set is empty")
+#            if M.pointer > MEMORY_CAPACITY:
+#            
+#                critic.Merge_Summary_End(observation_old[np.newaxis, :], action[np.newaxis, :],\
+#                                         observation[np.newaxis, :], np.array([reward[0]])[np.newaxis, :],\
+#                                         np.array([reward[1]])[np.newaxis, :],np.array([reward[2]])[np.newaxis, :])
+
                 
             if collision==True :
 #                
@@ -816,10 +835,11 @@ while not rospy.is_shutdown():
         
 #        rank_TD=critic.rank_priority(np.reshape(observation_old,(1,input_dim)), np.reshape(action,(1,ACTION_DIM)), np.reshape(reward,(1,1)), np.reshape(observation,(1,input_dim)))
 
-        M.store_transition(observation_old, action_old, observation ,reward[0],reward[1],reward[2])
+        M.store_transition(observation_old,actionorigin_old, action_old, observation ,reward[0],reward[1],reward[2])
         
         #print("MEMORY_CAPACITY:",M.pointer)
         if M.pointer > MEMORY_CAPACITY:
+            
             if var[0]>VAR_MIN[0]:
                 
                 var[0] = max([var[0]*0.99999, VAR_MIN[0]])    # decay the action randomness
@@ -900,6 +920,8 @@ while not rospy.is_shutdown():
 #            print("b_M:",len(b_M))
             b_s = b_M[:, :input_dim]
             b_a = b_M[:, input_dim: input_dim + ACTION_DIM]
+            b_a_i = b_M[:, input_dim + ACTION_DIM: input_dim +2*ACTION_DIM]
+            
             b_s_ = b_M[:, -input_dim-3:-3]
             b_r0 = b_M[:, -3:-2]
             b_r1 = b_M[:, -2:-1]
@@ -908,16 +930,20 @@ while not rospy.is_shutdown():
 #            print("b_r:",b_r)
 #            print("b_rank_q:",b_rank_q)
             
-            critic.learn(b_s, b_a, b_s_, b_r0, b_r1, b_r2, ep_total)
-            if actor_lock==True:
+            actor.learn_Imitation(b_s,b_a_i)
+#            critic.learn(b_s, b_a, b_s_, b_r0, b_r1, b_r2, ep_total)
+#            if actor_lock==True:
+#                
+#                actor_lock=False
+#                
+#            else:
+#                actor_lock=True
+#                actor.learn(b_s)
                 
-                actor_lock=False
-                
-            else:
-                actor_lock=True
-                actor.learn(b_s)
-        action_old=action
-        observation_old=observation
+        action_old=cp.copy(action)
+        actionorigin_old=cp.copy(actionorigin)
+        observation_old=cp.copy(observation)
+        
 #        algo_lock=True
 
 #    elif algo_lock==True:
