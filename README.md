@@ -4,7 +4,7 @@ Projekt Driverless Formula Student
 
     Inthalt:
     
-    1. 2D simulationsumgebung basiert auf pygame
+    1. 2D simulationsumgebung basiert auf pygame.Ackermann steering geometry is implemented.
     
     2. reinforcement learning Algorithmus:
     
