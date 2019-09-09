@@ -69,7 +69,6 @@ class Player(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
         self.image = load_image('f1.png')
-        
         self.rect = self.image.get_rect()
         self.image_orig = self.image
         self.screen = pygame.display.get_surface()
