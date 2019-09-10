@@ -27,13 +27,51 @@ Created on Sun Sep  8 16:43:17 2019
 @author: Asgard
 """
 
-import pygame
-import user_interface
-import vehicle
-
+import pygame,sys
+import user_interface,vehicle,camera
 from pygame.locals import *
 
+COUNT_FREQUENZ=500
 
 UI=user_interface.User_Interface()
 
-#vehicle = Vehicle.Vehicle()
+clock = pygame.time.Clock()
+
+camera = camera.Camera()
+
+vehicle = vehicle.Vehicle(UI.center)
+
+vehicle_set= pygame.sprite.Group()
+vehicle_set.add(vehicle)
+
+camera.set_position(vehicle.x, vehicle.y)
+
+while True:
+    
+    for event in pygame.event.get():
+#        print("event.type",dir(pygame.event))
+#        print("event",event)
+    # quit for windows
+        if event.type == QUIT:
+                    
+            pygame.quit()
+            sys.exit()
+            
+        elif event.type == KEYDOWN :
+                
+            # quit for esc key
+            if event.key == K_ESCAPE:  
+                            
+                pygame.quit()
+                sys.exit()
+        
+    UI.screen.blit(UI.background, (0,0))
+    camera.set_position(vehicle.x, vehicle.y)
+    vehicle_set.draw(UI.screen)
+#    UI.screen.blit(UI.canvas, (0,0))
+#    clock.tick_busy_loop(COUNT_FREQUENZ)
+    clock.tick(COUNT_FREQUENZ)
+    pygame.display.update()
+
+pygame.quit()
+sys.exit(0)

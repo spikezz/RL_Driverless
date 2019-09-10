@@ -22,4 +22,5 @@ def load_image(image_name,transparent=True):
         
         image = image.convert_alpha()
     
+    return image
     

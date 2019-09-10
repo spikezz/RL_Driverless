@@ -39,30 +39,30 @@ class User_Interface(object):
         pygame.init()
             
         #window
-        #screen = pygame.display.set_mode(size =(1360,768),flags=pygame.RESIZABLE)
-        screen = pygame.display.set_mode(size =(1360,768),flags=pygame.FULLSCREEN|pygame.HWSURFACE)
+        self.screen = pygame.display.set_mode(size =(1360,768))
+#        self.screen = pygame.display.set_mode(size =(1360,768),flags=pygame.FULLSCREEN|\
+#                                              pygame.HWSURFACE|pygame.DOUBLEBUF)
         
         #title
         pygame.display.set_caption('Karat Simulation')
         
         #font
-        font = pygame.font.Font('times.ttf', 40)
+        self.font = pygame.font.Font('times.ttf', 40)
         
         #background layer
-        background = pygame.Surface(screen.get_size())
-        background = background.convert_alpha()
-        background.fill((255, 1, 1))
-        print(background.get_bitsize())
-        
+        self.background = pygame.Surface(self.screen.get_size())
+        self.background = self.background.convert_alpha()
+        self.background.fill((255, 255, 255))
+               
         #canvas layer
-        canvas = pygame.Surface(screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
-        canvas = canvas.convert_alpha()
-        canvas.set_alpha(0)
+        self.canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
+        self.canvas = self.canvas.convert_alpha()
+        self.canvas.set_alpha(0)
         
         ##center of screen
-        CENTER_X =  float(pygame.display.Info().current_w /2)
-        CENTER_Y =  float(pygame.display.Info().current_h /2)
-        CENTER=(CENTER_X,CENTER_Y)
+        center_x =  float(pygame.display.Info().current_w /2)
+        center_y =  float(pygame.display.Info().current_h /2)
+        self.center=(center_x,center_y)
         
         
         
