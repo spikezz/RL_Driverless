@@ -28,8 +28,9 @@ Created on Sun Sep  8 16:43:17 2019
 """
 
 import pygame,sys
-import user_interface,vehicle,camera
+import user_interface,vehicle,camera,map_layout
 from pygame.locals import *
+
 
 COUNT_FREQUENZ=500
 
@@ -43,8 +44,12 @@ vehicle = vehicle.Vehicle(UI.center)
 
 vehicle_set= pygame.sprite.Group()
 vehicle_set.add(vehicle)
+vehicle.set_inital_direction(182)
 
 camera.set_position(vehicle.x, vehicle.y)
+
+map_set=map_layout.Map().map_set
+mark_set=map_layout.Map().mark_set
 
 while True:
     
@@ -64,11 +69,25 @@ while True:
                             
                 pygame.quit()
                 sys.exit()
-        
-    UI.screen.blit(UI.background, (0,0))
+    
     camera.set_position(vehicle.x, vehicle.y)
+    
+    UI.screen.blit(UI.background, (0,0))
+    
+    map_set.update(camera.x, camera.y)
+
+    map_set.draw(UI.screen)
+    
+    mark_set.update(camera.x, camera.y)
+    
+    mark_set.draw(UI.screen)
+    
     vehicle_set.draw(UI.screen)
-#    UI.screen.blit(UI.canvas, (0,0))
+    
+    UI.screen.blit(UI.vehicle_canvas, (0,0))
+    
+    UI.screen.blit(UI.sensor_canvas, (0,0))
+    
 #    clock.tick_busy_loop(COUNT_FREQUENZ)
     clock.tick(COUNT_FREQUENZ)
     pygame.display.update()

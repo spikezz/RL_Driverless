@@ -36,19 +36,20 @@ class Vehicle(pygame.sprite.Sprite):
     def __init__(self,center):
         
         pygame.sprite.Sprite.__init__(self)
-        self.image = load_image('f1.png')
+        
+        self.image = load_image('n19.png')
         self.rect = self.image.get_rect()
         self.image_copy = self.image
 #        self.screen = pygame.display.get_surface()
 #        self.area = self.screen.get_rect()
-#        CENTER_X =  int(pygame.display.Info().current_w /2)
-#        CENTER_Y =  int(pygame.display.Info().current_h /2)
         self.x_canvas = center[0]
         self.y_canvas = center[1]
+#        self.x_canvas = 0
+#        self.y_canvas = 0
         self.rect.topleft = self.x_canvas-17, self.y_canvas-33
         self.map_block_side=1000
-        self.x, self.y = self.findspawn(center,12,4)
-#        self.x, self.y = self.findspawn(center,0,0)
+#        self.x, self.y = self.findspawn(center,12,4)
+        self.x, self.y = self.findspawn(center,0,0)
         print(self.x, self.y)
         self.direction = 0.0
         self.speed = 0.0
@@ -70,17 +71,32 @@ class Vehicle(pygame.sprite.Sprite):
         
         self.map_grid_x=map_grid_x#row
         self.map_grid_y=map_grid_y#line
-#        self.offset_x=-1000
-#        self.offset_y=-2500
-        self.offset_x=-100
-        self.offset_y=-250
-        
+#        self.offset_x=-100
+#        self.offset_y=-250
+        self.offset_x=-680-330
+        self.offset_y=-384-280
+#        self.offset_x=-680
+#        self.offset_y=-384
+#        self.offset_x=0
+#        self.offset_y=0
         spawn_x=self.map_grid_x * self.map_block_side + center[0]+self.offset_x
         spawn_y=self.map_grid_y * self.map_block_side + center[1]+self.offset_y
     
         return spawn_x,spawn_y
+    
+    def rotate(self, image, rect, direction):
         
+#        rotate an image while keeping its center
+        rot_image = pygame.transform.rotate(image, direction)
+        rot_rect = rot_image.get_rect(center=rect.center)
         
+        return rot_image,rot_rect
+    
+    def set_inital_direction(self,direction):
+        
+        #self.dir is the direction of the car, car.dir=0 means face top,the positive direction is anticlockwise
+        self.direction=direction
+        self.image, self.rect = self.rotate(self.image_copy, self.rect, self.direction)
         
 #    def update(self, last_x, last_y):
 #        

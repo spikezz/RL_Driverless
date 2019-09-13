@@ -20,22 +20,22 @@ from operator import itemgetter, attrgetter
 from RL import PolicyGradient
 
 #initial stuff
-pygame.init()
-screen = pygame.display.set_mode((1360,768),0)
-pygame.display.set_caption('Karat Simulation')
-font = pygame.font.Font(None, 40)
+pygame.init()#
+screen = pygame.display.set_mode((1360,768),0)#
+pygame.display.set_caption('Karat Simulation')#
+font = pygame.font.Font(None, 40)#
 #initial stuff
 
 ##black background for render when car is out of map 
-background = pygame.Surface(screen.get_size())
-background = background.convert_alpha()
-background.fill((1, 1, 1))
+background = pygame.Surface(screen.get_size())#
+background = background.convert_alpha()#
+background.fill((1, 1, 1))#
 ##black background for render when car is out of map 
 
 ##the transparent canvas for drawing the necessary geometric relationship.The Zero point is at (cam.x,cam.y)
-canvas = pygame.Surface(screen.get_size(),SRCALPHA ,32)
-canvas = canvas.convert_alpha()
-canvas.set_alpha(0)
+canvas = pygame.Surface(screen.get_size(),SRCALPHA ,32)#
+canvas = canvas.convert_alpha()#
+canvas.set_alpha(0)#
 ##the transparent canvas for drawing the necessary geometric relationship.The Zero point is at (cam.x,cam.y)
 
 #testcode for shell
@@ -43,27 +43,28 @@ canvas.set_alpha(0)
 #CENTER_Y = 450
 
 ##find the center of screen
-CENTER_X =  float(pygame.display.Info().current_w /2)
-CENTER_Y =  float(pygame.display.Info().current_h /2)
-CENTER=(CENTER_X,CENTER_Y)
+CENTER_X =  float(pygame.display.Info().current_w /2)#
+CENTER_Y =  float(pygame.display.Info().current_h /2)#
+CENTER=(CENTER_X,CENTER_Y)#
 ##find the center of screen
 
 ##constant of path
 half_path_wide=80
+
 ##constant of path
 
 ##create some objects
-clock = pygame.time.Clock()
-car = player.Player()
-cam = camera.Camera()
+clock = pygame.time.Clock()#
+car = player.Player()#
+cam = camera.Camera()#
 ##create some objects
 
 ##create the spriteGroup contains objects
 list_cone_yellow=[]
 list_cone_blue=[]
 list_path_point=[]
-map_s= pygame.sprite.Group()
-player_s= pygame.sprite.Group()
+map_s= pygame.sprite.Group()#
+player_s= pygame.sprite.Group()#
 tracks_s= pygame.sprite.Group()
 cone_s  = pygame.sprite.Group()
 cone_h  = pygame.sprite.Group()
@@ -72,12 +73,12 @@ path_s  = pygame.sprite.Group()
 
 ##tracks  initalize. tracks are points left  while driving
 tracks.initialize()
-cam.set_pos(car.x, car.y)
+cam.set_pos(car.x, car.y)#
 ##tracks  initalize. tracks are points left  while driving
 
 ##add objects
 #car
-player_s.add(car)
+player_s.add(car)#
 #car
 #cone
 # =============================================================================
@@ -101,7 +102,7 @@ list_path_point.append(startpoint)
 ##add objects
 
 ##set orientation
-car.set_start_direction(90)
+car.set_start_direction(90)#
 #the turning angle of the wheel 
 angle=0
 #the turning angle of the wheel  

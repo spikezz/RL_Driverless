@@ -1,2 +1,0 @@
-airsiminterface
--DCATKIN_DEVEL_PREFIX=/home/spikezz/KaratUnreal/catkin_ws/devel -DCMAKE_INSTALL_PREFIX=/home/spikezz/KaratUnreal/catkin_ws/install -G Unix Makefiles

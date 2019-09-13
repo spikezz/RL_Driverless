@@ -47,22 +47,27 @@ class User_Interface(object):
         pygame.display.set_caption('Karat Simulation')
         
         #font
-        self.font = pygame.font.Font('times.ttf', 40)
+        self.font = pygame.font.Font('font/times.ttf', 40)
         
         #background layer
         self.background = pygame.Surface(self.screen.get_size())
         self.background = self.background.convert_alpha()
-        self.background.fill((255, 255, 255))
+        self.background.fill((0, 0, 0))
                
         #canvas layer
-        self.canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
-        self.canvas = self.canvas.convert_alpha()
-        self.canvas.set_alpha(0)
+        self.vehicle_canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
+        self.vehicle_canvas = self.vehicle_canvas.convert_alpha()
+        self.vehicle_canvas.set_alpha(0)
+        
+        self.sensor_canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
+        self.sensor_canvas = self.sensor_canvas.convert_alpha()
+        self.sensor_canvas.set_alpha(0)
         
         ##center of screen
         center_x =  float(pygame.display.Info().current_w /2)
         center_y =  float(pygame.display.Info().current_h /2)
         self.center=(center_x,center_y)
+#        self.center=(0,0)
         
         
         
