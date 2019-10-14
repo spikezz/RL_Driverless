@@ -55,9 +55,13 @@ class User_Interface(object):
         self.background.fill((0, 0, 0))
                
         #canvas layer
-        self.vehicle_canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
-        self.vehicle_canvas = self.vehicle_canvas.convert_alpha()
-        self.vehicle_canvas.set_alpha(0)
+        self.dynamic_canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
+        self.dynamic_canvas = self.dynamic_canvas.convert_alpha()
+        self.dynamic_canvas.set_alpha(0)
+        
+        self.kinetic_canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
+        self.kinetic_canvas = self.kinetic_canvas.convert_alpha()
+        self.kinetic_canvas.set_alpha(0)
         
         self.sensor_canvas = pygame.Surface(self.screen.get_size(),flags=pygame.SRCALPHA ,depth=32)
         self.sensor_canvas = self.sensor_canvas.convert_alpha()
@@ -67,8 +71,46 @@ class User_Interface(object):
         center_x =  float(pygame.display.Info().current_w /2)
         center_y =  float(pygame.display.Info().current_h /2)
         self.center=(center_x,center_y)
-#        self.center=(0,0)
         
-        
-        
+        self.zoom_in=False
     
+    def update(self,entity_self,vehicle_set,map_set,top_down_camera,cross_mark):
+
+        self.screen.fill([0,0,0])
+        self.screen.blit(self.background, (0,0))
+#        
+#        if self.zoom_in:  
+#            
+#            for v in vehicle_set:
+#                
+#                v.zoom()
+#                
+#            self.zoom_in=False
+#
+##        v.direction+=1
+##        v.x+=1
+##        v.set_direction(False)
+        
+        map_set.update(top_down_camera.x, top_down_camera.y,self.center)
+        map_set.draw(self.screen)
+        
+#        cross_mark.update(self.scrxxeen,top_down_camera)
+        
+        for v in vehicle_set:
+            v.direction+=1
+            v.set_direction(False)
+#            v.x+=1
+            if id(entity_self)!=id(v):
+                
+#                print(id(entity_self),id(v))
+                v.update(top_down_camera.x, top_down_camera.y,self.center)
+#                
+            else:
+                
+                v.x+=1
+                v.update_self(top_down_camera.x, top_down_camera.y,self.center)
+                
+            pygame.draw.rect(self.screen,(255,255,255),(v.rect.center[0]-v.rect.width/2,\
+                            v.rect.center[1]-v.rect.height/2,v.rect.width,v.rect.height),1)
+            
+        vehicle_set.draw(self.screen)

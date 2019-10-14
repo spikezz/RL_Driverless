@@ -28,30 +28,36 @@ Created on Sun Sep  8 16:43:17 2019
 """
 
 import pygame,sys
-import user_interface,vehicle,camera,map_layout
+import user_interface,vehicle,camera,map_layout,mark
 from pygame.locals import *
 
-
-COUNT_FREQUENZ=500
+COUNT_FREQUENZ=10
 
 UI=user_interface.User_Interface()
 
 clock = pygame.time.Clock()
 
-camera = camera.Camera()
+top_down_camera = camera.Camera()
 
-vehicle = vehicle.Vehicle(UI.center)
+vehicle_1 = vehicle.Vehicle(UI.center,[2000,1000])
+vehicle_1.direction=182
+vehicle_1.set_direction(False)
+vehicle_1.center_camera()
+vehicle_2 = vehicle.Vehicle(UI.center,[2100,1100])
+vehicle_3 = vehicle.Vehicle(UI.center,[2300,1300])
 
 vehicle_set= pygame.sprite.Group()
-vehicle_set.add(vehicle)
-vehicle.set_inital_direction(182)
+vehicle_set.add(vehicle_1)
+vehicle_set.add(vehicle_2)
+vehicle_set.add(vehicle_3)
 
-camera.set_position(vehicle.x, vehicle.y)
+map_layout=map_layout.Map()
+map_set=map_layout.map_set
 
-map_set=map_layout.Map().map_set
-mark_set=map_layout.Map().mark_set
+cross_mark=mark.Mark.cross_mark(0,0)
+cross_mark.update(UI.screen,top_down_camera)
 
-while True:
+def event_handler():
     
     for event in pygame.event.get():
 #        print("event.type",dir(pygame.event))
@@ -63,33 +69,47 @@ while True:
             sys.exit()
             
         elif event.type == KEYDOWN :
-                
+
             # quit for esc key
             if event.key == K_ESCAPE:  
                             
                 pygame.quit()
                 sys.exit()
-    
-    camera.set_position(vehicle.x, vehicle.y)
-    
-    UI.screen.blit(UI.background, (0,0))
-    
-    map_set.update(camera.x, camera.y)
+            
+            if event.unicode == 'k':  
+                
+                if not UI.zoom_in:
+                    
+                    UI.zoom_in=True
+                    
+                else:
+                    
+                    UI.zoom_in=False
+                
+while True:
 
-    map_set.draw(UI.screen)
-    
-    mark_set.update(camera.x, camera.y)
-    
-    mark_set.draw(UI.screen)
-    
-    vehicle_set.draw(UI.screen)
-    
-    UI.screen.blit(UI.vehicle_canvas, (0,0))
-    
-    UI.screen.blit(UI.sensor_canvas, (0,0))
-    
+    event_handler()
+    print("tick")
+    top_down_camera.set_position(vehicle_1.x, vehicle_1.y)
+#    top_down_camera.set_position(vehicle_2.x, vehicle_2.y)
+
+    UI.update(vehicle_1,vehicle_set,map_set,top_down_camera,cross_mark)
+#    vehicle_1.center_camera()
+#    UI.update(vehicle_2,vehicle_set,map_set,top_down_camera,cross_mark)
+
+#    map_layout.zoom_in()
+
+#    for m in map_set:
+#        
+#        if UI.zoom_in:   
+#            
+#            m.zoom()
+
+#    UI.screen.blit(UI.sensor_canvas, (0,0))
+
 #    clock.tick_busy_loop(COUNT_FREQUENZ)
     clock.tick(COUNT_FREQUENZ)
+
     pygame.display.update()
 
 pygame.quit()

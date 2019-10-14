@@ -11,8 +11,8 @@ class Map(object):
     
     def __init__(self):
         
-        self.map_tile_path=['test_map\intersection_scaled_1000.png',
-                            'test_map\intersection_scaled.png'
+        self.map_tile_path=['test_map\intersection.png',
+                            'test_map\intersection.png'
                            ]
         self.map_image_set = []
         self.map_plan=[\
@@ -21,40 +21,29 @@ class Map(object):
         self.side=1000
         self.map_set= pygame.sprite.Group()
         
-        ##read the maps and draw
         for tile_idx in range (0,len(self.map_tile_path)):
         
-            #add submap idx to array
             self.map_image_set.append(load_image(self.map_tile_path[tile_idx],False))
-            #add submap idx to array
-
+        
         for x in range (0,1):
-    
+            
             for y in range (0,1):
                 
-                temp_tile=self.Map_Tile(self, self.map_plan[x][y], x * self.side, y * self.side)
-                print(temp_tile.rect.topleft)
-                self.map_set.add(temp_tile)
-#                #add submap to mapgroup
-#                ##read the maps and draw
+                self.temp_tile=self.Map_Tile(self, self.map_plan[x][y], x * self.side, y * self.side)
+                self.map_set.add(self.temp_tile)
+    
+    def zoom_in(self):
         
-        self.mark_set= pygame.sprite.Group()
-        self.mark_set.add(self.Land_Mark(x * self.side, y * self.side))
+        self.map_set= pygame.sprite.Group()
         
-    class Land_Mark(pygame.sprite.Sprite):
-        
-        def __init__(self,x,y):
+        for x in range (0,1):
             
-            pygame.sprite.Sprite.__init__(self)
-            self.image=load_image('test_map\mark.png',False)
-            self.rect = self.image.get_rect()
-            self.x = x
-            self.y = y
+            for y in range (0,1):
+                
+                self.temp_tile=self.Map_Tile(self, self.map_plan[x][y], x * self.side/2, y * self.side/2)
+                self.temp_tile.zoom()
+                self.map_set.add(self.temp_tile)
         
-        def update(self, cam_x, cam_y):
-            
-            self.rect.topleft = self.x - cam_x, self.y - cam_y
-            
     class Map_Tile(pygame.sprite.Sprite):
     
         def __init__(self,whole_map, tile, y, x):
@@ -62,9 +51,23 @@ class Map(object):
             pygame.sprite.Sprite.__init__(self)
             self.image = whole_map.map_image_set[tile]
             self.rect = self.image.get_rect()
+            self.image_rect_copy_width=self.rect.width
+            self.image_rect_copy_height=self.rect.height
             self.x = x
             self.y = y
             
-        def update(self, cam_x, cam_y):
+        def update(self, cam_x, cam_y,center):
             
-            self.rect.topleft = self.x - cam_x, self.y - cam_y
+            self.rect.topleft = self.x - cam_x+center[0], self.y - cam_y+center[1]
+            
+        def scale(self,image,rect,w,h):
+        
+            scaled_image=pygame.transform.smoothscale(image,(w,h))
+            scaled_rect=scaled_image.get_rect(center=rect.center)
+            
+            return scaled_image,scaled_rect
+        
+        def zoom(self):
+        
+            self.image, self.rect = self.scale(self.image,self.rect, int(self.image_rect_copy_width/2),\
+                                               int(self.image_rect_copy_height/2))

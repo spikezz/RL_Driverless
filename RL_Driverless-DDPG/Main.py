@@ -838,7 +838,7 @@ if LOAD:
 else:
 #    if os.path.isdir(di_load): shutil.rmtree(di_load)
     sess.run(tf.global_variables_initializer())
-    os.mkdir(di_load)
+#    os.mkdir(di_load)
         
 while True:
 

@@ -33,24 +33,20 @@ from tools import load_image
 
 class Vehicle(pygame.sprite.Sprite):
     
-    def __init__(self,center):
+    def __init__(self,center,offset):
         
         pygame.sprite.Sprite.__init__(self)
         
-        self.image = load_image('n19.png')
+        self.image = load_image('test_map\golf.png')
         self.rect = self.image.get_rect()
-        self.image_copy = self.image
-#        self.screen = pygame.display.get_surface()
-#        self.area = self.screen.get_rect()
-        self.x_canvas = center[0]
-        self.y_canvas = center[1]
-#        self.x_canvas = 0
-#        self.y_canvas = 0
-        self.rect.topleft = self.x_canvas-17, self.y_canvas-33
+        self.image_copy = load_image('test_map\golf.png')#save original pic
+        self.rect_copy = self.image_copy.get_rect()
+#        self.image_rect_copy_width=self.rect.width
+#        self.image_rect_copy_height=self.rect.height
         self.map_block_side=1000
-#        self.x, self.y = self.findspawn(center,12,4)
-        self.x, self.y = self.findspawn(center,0,0)
-        print(self.x, self.y)
+        self.screen_center=center
+        self.offset=offset
+        self.x, self.y = self.findspawn(0,0)#absolute coordinate
         self.direction = 0.0
         self.speed = 0.0
         self.maxspeed = 5.0
@@ -59,7 +55,7 @@ class Vehicle(pygame.sprite.Sprite):
         self.deceleration = 0.5
         self.softening = 0.04
         self.steering_rate = 3
-        self.tracks = False
+#        self.tracks = False
         self.steering_angle=0.0
 #        self.rrl=0.0
 #        self.rrr=0.0
@@ -67,22 +63,24 @@ class Vehicle(pygame.sprite.Sprite):
 #        self.rpr=(0,0)
 #        self.rrm=0
         
-    def findspawn(self,center,map_grid_x,map_grid_y):
+    def findspawn(self,map_grid_x,map_grid_y):
         
         self.map_grid_x=map_grid_x#row
         self.map_grid_y=map_grid_y#line
-#        self.offset_x=-100
-#        self.offset_y=-250
-        self.offset_x=-680-330
-        self.offset_y=-384-280
-#        self.offset_x=-680
-#        self.offset_y=-384
-#        self.offset_x=0
-#        self.offset_y=0
-        spawn_x=self.map_grid_x * self.map_block_side + center[0]+self.offset_x
-        spawn_y=self.map_grid_y * self.map_block_side + center[1]+self.offset_y
+        self.offset_x=self.offset[0]
+        self.offset_y=self.offset[1]
+        spawn_x=self.map_grid_x * self.map_block_side +self.offset_x
+        spawn_y=self.map_grid_y * self.map_block_side +self.offset_y
     
         return spawn_x,spawn_y
+    
+    def center_camera(self):
+        
+        self.x_canvas = self.screen_center[0]
+        self.y_canvas = self.screen_center[1]
+        self.rect.topleft = self.x_canvas-self.rect.center[0], self.y_canvas-self.rect.center[1]
+        print(self.x_canvas,self.rect.center[0],self.y_canvas,self.rect.center[1])
+        print(self.rect.topleft)
     
     def rotate(self, image, rect, direction):
         
@@ -92,12 +90,36 @@ class Vehicle(pygame.sprite.Sprite):
         
         return rot_image,rot_rect
     
-    def set_inital_direction(self,direction):
+    def scale(self,image,rect,w,h):
+        
+        scaled_image=pygame.transform.scale(image,(w,h))
+        scaled_rect=scaled_image.get_rect(center=rect.center)
+        
+        return scaled_image,scaled_rect
+        
+    def set_direction(self,zoom):
         
         #self.dir is the direction of the car, car.dir=0 means face top,the positive direction is anticlockwise
-        self.direction=direction
-        self.image, self.rect = self.rotate(self.image_copy, self.rect, self.direction)
+        self.image, self.rect = self.rotate(self.image_copy, self.rect_copy, self.direction)
         
+#        if not zoom:
+#            
+        self.image_rect_copy_width=self.rect.width
+        self.image_rect_copy_height=self.rect.height
+    
+    def zoom(self):
+        
+        self.image, self.rect = self.scale(self.image,self.rect, int(self.image_rect_copy_width/2),\
+                                           int(self.image_rect_copy_height/2))
+        
+    def update_self(self,cam_x,cam_y,center):
+        
+        self.rect.center = self.x - cam_x+center[0], self.y - cam_y+center[1] 
+    
+    def update(self,cam_x,cam_y,center):
+
+        self.rect.center = self.x - cam_x+center[0], self.y - cam_y+center[1]
+
 #    def update(self, last_x, last_y):
 #        
 #        if self.wheelangle>0:
