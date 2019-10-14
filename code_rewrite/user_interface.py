@@ -103,6 +103,7 @@ class User_Interface(object):
             if id(entity_self)!=id(v):
                 
 #                print(id(entity_self),id(v))
+                v.x-=1
                 v.update(top_down_camera.x, top_down_camera.y,self.center)
 #                
             else:
